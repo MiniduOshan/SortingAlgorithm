@@ -3,98 +3,159 @@ package com.sortingapp.gui.components;
 import com.sortingapp.model.SortingResult;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.JTableHeader;
 import java.awt.*;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 /**
- * Swing panel rendering tabular benchmark metrics for all evaluated sorting algorithms.
- * 
- * Group Assignment Contribution:
- * Member 3: Performance evaluation and GUI results table.
+ * Displays sorting performance results ranked from fastest to slowest.
  */
 public class PerformanceTablePanel extends JPanel {
 
+    private static final Color BACKGROUND = Color.WHITE;
+    private static final Color HEADER_BG = new Color(239, 246, 255);
+    private static final Color HEADER_TEXT = new Color(20, 32, 67);
+    private static final Color TEXT_PRIMARY = new Color(32, 47, 78);
+    private static final Color BORDER = new Color(218, 227, 240);
+    private static final Color ROW_ALT = new Color(249, 251, 255);
+    private static final Color WINNER_BG = new Color(236, 253, 245);
+    private static final Color WINNER_TEXT = new Color(22, 128, 79);
+
     private final JTable table;
     private final DefaultTableModel model;
-    private final JLabel winnerCardLabel;
 
     public PerformanceTablePanel() {
-        setLayout(new BorderLayout(10, 10));
-        setBackground(Color.WHITE);
+        setLayout(new BorderLayout());
+        setBackground(BACKGROUND);
+        setOpaque(true);
 
-        // Winner Card Header
-        winnerCardLabel = new JLabel("🏆 Select dataset and run evaluation to identify the best algorithm", SwingConstants.CENTER);
-        winnerCardLabel.setFont(new Font("Segoe UI", Font.BOLD, 15));
-        winnerCardLabel.setForeground(new Color(44, 62, 80));
-        winnerCardLabel.setOpaque(true);
-        winnerCardLabel.setBackground(new Color(241, 248, 255));
-        winnerCardLabel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(200, 220, 240), 1),
-                BorderFactory.createEmptyBorder(12, 16, 12, 16)
-        ));
-        add(winnerCardLabel, BorderLayout.NORTH);
+        String[] columns = {
+                "Rank",
+                "Algorithm",
+                "Execution Time",
+                "Comparisons",
+                "Swaps / Shifts"
+        };
 
-        // Benchmark Table
-        String[] columns = {"Rank", "Algorithm Name", "Execution Time", "Comparisons", "Swaps / Shifts", "Verified Sorted", "Speed Factor"};
         model = new DefaultTableModel(columns, 0) {
             @Override
-            public boolean isCellEditable(int r, int c) {
+            public boolean isCellEditable(int row, int column) {
                 return false;
             }
         };
 
         table = new JTable(model);
-        table.setRowHeight(28);
-        table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 12));
-        table.getTableHeader().setBackground(new Color(236, 240, 241));
-        table.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-
-        // Center align rank and status columns
-        DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
-        centerRenderer.setHorizontalAlignment(JLabel.CENTER);
-        table.getColumnModel().getColumn(0).setCellRenderer(centerRenderer);
-        table.getColumnModel().getColumn(5).setCellRenderer(centerRenderer);
+        configureTable();
 
         JScrollPane scrollPane = new JScrollPane(table);
-        scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        scrollPane.setBorder(BorderFactory.createLineBorder(BORDER));
+        scrollPane.getViewport().setBackground(BACKGROUND);
+        scrollPane.setBackground(BACKGROUND);
+        scrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
+        scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+
         add(scrollPane, BorderLayout.CENTER);
     }
 
+    private void configureTable() {
+        table.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        table.setForeground(TEXT_PRIMARY);
+        table.setBackground(BACKGROUND);
+        table.setRowHeight(26);
+        table.setShowVerticalLines(true);
+        table.setShowHorizontalLines(true);
+        table.setGridColor(new Color(224, 232, 243));
+        table.setIntercellSpacing(new Dimension(1, 1));
+        table.setFillsViewportHeight(true);
+        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        table.setSelectionBackground(new Color(229, 241, 255));
+        table.setSelectionForeground(TEXT_PRIMARY);
+        table.setFocusable(false);
+        table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
+
+        JTableHeader header = table.getTableHeader();
+        header.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        header.setForeground(HEADER_TEXT);
+        header.setBackground(HEADER_BG);
+        header.setPreferredSize(new Dimension(header.getPreferredSize().width, 29));
+        header.setReorderingAllowed(false);
+        header.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, BORDER));
+
+        ResultsCellRenderer renderer = new ResultsCellRenderer();
+        for (int i = 0; i < table.getColumnCount(); i++) {
+            table.getColumnModel().getColumn(i).setCellRenderer(renderer);
+        }
+
+        table.getColumnModel().getColumn(0).setPreferredWidth(55);
+        table.getColumnModel().getColumn(0).setMaxWidth(70);
+        table.getColumnModel().getColumn(1).setPreferredWidth(190);
+        table.getColumnModel().getColumn(2).setPreferredWidth(145);
+        table.getColumnModel().getColumn(3).setPreferredWidth(130);
+        table.getColumnModel().getColumn(4).setPreferredWidth(130);
+    }
+
+    /**
+     * Rebuilds the table in execution-time order. Rank 1 is the fastest result.
+     */
     public void updateResults(List<SortingResult> results, SortingResult winner) {
         model.setRowCount(0);
 
-        if (winner != null) {
-            winnerCardLabel.setText(String.format("🏆 BEST ALGORITHM: %s | Execution Time: %s (%d elements)",
-                    winner.getAlgorithmName().toUpperCase(), winner.getFormattedExecutionTime(), winner.getItemCount()));
-            winnerCardLabel.setBackground(new Color(235, 247, 238));
-            winnerCardLabel.setForeground(new Color(39, 174, 96));
-        } else {
-            winnerCardLabel.setText(" Select dataset and run evaluation to identify the best algorithm");
-            winnerCardLabel.setBackground(new Color(241, 248, 255));
-            winnerCardLabel.setForeground(new Color(44, 62, 80));
+        if (results == null || results.isEmpty()) {
+            return;
         }
 
-        if (results == null || results.isEmpty()) return;
+        List<SortingResult> rankedResults = new ArrayList<>(results);
+        rankedResults.sort(Comparator.comparingLong(SortingResult::getExecutionTimeNs));
 
-        long baselineNs = winner != null ? Math.max(1, winner.getExecutionTimeNs()) : 1;
-
-        for (int i = 0; i < results.size(); i++) {
-            SortingResult r = results.get(i);
-            String rankStr = (winner != null && r.getAlgorithmName().equals(winner.getAlgorithmName())) ? "🥇 1st" : (i + 1) + "";
-            double speedFactor = (double) r.getExecutionTimeNs() / baselineNs;
-            String speedStr = String.format("%.2fx", speedFactor);
-
+        for (int i = 0; i < rankedResults.size(); i++) {
+            SortingResult result = rankedResults.get(i);
             model.addRow(new Object[]{
-                    rankStr,
-                    r.getAlgorithmName(),
-                    r.getFormattedExecutionTime(),
-                    String.format("%,d", r.getComparisonCount()),
-                    String.format("%,d", r.getSwapCount()),
-                    r.isSortedCorrectly() ? "✅ Passed" : "❌ Failed",
-                    speedStr
+                    i + 1,
+                    result.getAlgorithmName(),
+                    result.getFormattedExecutionTime(),
+                    String.format("%,d", result.getComparisonCount()),
+                    String.format("%,d", result.getSwapCount())
             });
+        }
+    }
+
+    private class ResultsCellRenderer extends DefaultTableCellRenderer {
+
+        ResultsCellRenderer() {
+            setBorder(new EmptyBorder(0, 8, 0, 8));
+        }
+
+        @Override
+        public Component getTableCellRendererComponent(
+                JTable table,
+                Object value,
+                boolean isSelected,
+                boolean hasFocus,
+                int row,
+                int column
+        ) {
+            super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+
+            setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            setForeground(TEXT_PRIMARY);
+
+            if (!isSelected) {
+                if (row == 0) {
+                    setBackground(WINNER_BG);
+                    setForeground(WINNER_TEXT);
+                    setFont(new Font("Segoe UI", Font.BOLD, 13));
+                } else {
+                    setBackground(row % 2 == 0 ? BACKGROUND : ROW_ALT);
+                }
+            }
+
+            setHorizontalAlignment(column == 1 ? SwingConstants.LEFT : SwingConstants.CENTER);
+            return this;
         }
     }
 }
