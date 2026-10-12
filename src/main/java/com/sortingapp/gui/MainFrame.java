@@ -3,14 +3,10 @@ package com.sortingapp.gui;
 import com.sortingapp.csv.CSVReader;
 import com.sortingapp.csv.CSVWriter;
 import com.sortingapp.gui.components.BarChartPanel;
-import com.sortingapp.gui.components.DataTablePanel;
 import com.sortingapp.gui.components.PerformanceTablePanel;
 import com.sortingapp.model.CSVData;
-
 import com.sortingapp.model.SortingResult;
 import com.sortingapp.performance.PerformanceEvaluator;
-import com.sortingapp.sorting.SortFactory;
-import com.sortingapp.sorting.SortingAlgorithm;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -21,198 +17,494 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Main Application GUI Window for the Sorting Algorithm Performance Evaluator.
- * Combines CSV file loading, column selection, performance benchmarking,
- * visual chart rendering, and sorted dataset preview/export.
- * 
- * Group Assignment Contribution:
- * Member 3: User Interface Development & Application Integration.
+ * Main application window for the Sorting Algorithm Performance Evaluator.
+ *
+ * Member 3 contribution:
+ *  - Light-mode dashboard UI
+ *  - GUI integration
+ *  - Performance evaluation workflow
+ *  - Winner/result visualization
+ *  - Responsive background benchmarking with SwingWorker
+ *  - State reset when the selected numeric column changes
  */
 public class MainFrame extends JFrame {
 
+    // -------------------------------------------------------------------------
+    // Theme
+    // -------------------------------------------------------------------------
+    private static final Color APP_BG = new Color(246, 249, 253);
+    private static final Color CARD_BG = Color.WHITE;
+    private static final Color BORDER = new Color(218, 227, 240);
+    private static final Color TEXT_PRIMARY = new Color(20, 32, 67);
+    private static final Color TEXT_SECONDARY = new Color(91, 108, 145);
+    private static final Color BLUE = new Color(38, 132, 255);
+    private static final Color PURPLE = new Color(125, 73, 255);
+    private static final Color PINK = new Color(219, 57, 205);
+
+    private static final Font FONT_SECTION = new Font("Segoe UI", Font.BOLD, 16);
+    private static final Font FONT_LABEL = new Font("Segoe UI", Font.BOLD, 13);
+    private static final Font FONT_NORMAL = new Font("Segoe UI", Font.PLAIN, 13);
+    private static final Font FONT_SMALL = new Font("Segoe UI", Font.PLAIN, 12);
+
+    // -------------------------------------------------------------------------
+    // Application data
+    // -------------------------------------------------------------------------
     private CSVData currentCSVData;
     private double[] currentColumnValues;
     private PerformanceEvaluator.EvaluationSummary currentSummary;
-    private File currentFile;
 
-    // GUI Components
+    // -------------------------------------------------------------------------
+    // GUI components
+    // -------------------------------------------------------------------------
     private JLabel fileNameLabel;
+    private JLabel datasetInfoLabel;
     private JComboBox<String> columnComboBox;
-    private JComboBox<String> orderComboBox;
-    private JComboBox<String> singleAlgorithmComboBox;
     private JButton uploadBtn;
     private JButton evaluateAllBtn;
-    private JButton runSingleBtn;
     private JButton exportBtn;
 
-    private DataTablePanel rawDataTablePanel;
-    private DataTablePanel sortedTablePanel;
     private PerformanceTablePanel performanceTablePanel;
     private BarChartPanel barChartPanel;
-    private JLabel statusLabel;
+
+    private JLabel winnerNameLabel;
+    private JLabel winnerTimeLabel;
+    private JLabel winnerDetailsLabel;
+
+    private boolean suppressSelectionEvents = false;
 
     public MainFrame() {
-        setTitle("IC4302 - Sorting Algorithm Performance Evaluation System");
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1200, 800);
-        setMinimumSize(new Dimension(1000, 650));
-        setLocationRelativeTo(null);
-
-        // Header Panel
-        JPanel headerPanel = createHeaderPanel();
-
-        // Control Panel
-        JPanel controlPanel = createControlPanel();
-
-        // Components initialization for tabs
-        rawDataTablePanel = new DataTablePanel();
-        sortedTablePanel = new DataTablePanel();
-        performanceTablePanel = new PerformanceTablePanel();
-        barChartPanel = new BarChartPanel();
-
-        // Main Tabbed Pane
-        JTabbedPane tabbedPane = new JTabbedPane();
-        tabbedPane.setFont(new Font("Segoe UI", Font.BOLD, 13));
-
-        // Tab 1: Performance Evaluation
-        JSplitPane perfSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, performanceTablePanel, barChartPanel);
-        perfSplitPane.setResizeWeight(0.5);
-        perfSplitPane.setDividerLocation(300);
-        tabbedPane.addTab("📊 Performance Metrics & Chart", perfSplitPane);
-
-        // Tab 2: Raw Dataset
-        tabbedPane.addTab("📁 Raw Dataset Preview", rawDataTablePanel);
-
-        // Tab 3: Sorted Data
-        tabbedPane.addTab("🔢 Sorted Data Preview", sortedTablePanel);
-
-        // Tab 4: Group Guidelines & Algorithm Details
-        tabbedPane.addTab("ℹ️ Group & Algorithm Specs", createDocsPanel());
-
-        // Status Bar
-        statusLabel = new JLabel(" Ready. Please upload a dataset in .csv format.");
-        statusLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        statusLabel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(210, 215, 220)),
-                new EmptyBorder(6, 10, 6, 10)
-        ));
-
-        // Layout
-        JPanel topContainer = new JPanel(new BorderLayout());
-        topContainer.add(headerPanel, BorderLayout.NORTH);
-        topContainer.add(controlPanel, BorderLayout.SOUTH);
-
-        getContentPane().add(topContainer, BorderLayout.NORTH);
-        getContentPane().add(tabbedPane, BorderLayout.CENTER);
-        getContentPane().add(statusLabel, BorderLayout.SOUTH);
-
-        // Attach Event Handlers
-        uploadBtn.addActionListener(e -> onUploadCSV());
-        evaluateAllBtn.addActionListener(e -> onEvaluateAll());
-        runSingleBtn.addActionListener(e -> onRunSingleAlgorithm());
-        exportBtn.addActionListener(e -> onExportSortedCSV());
-        columnComboBox.addActionListener(e -> onColumnSelected());
-
-        // Initialize algorithm selector dropdown
-        singleAlgorithmComboBox = new JComboBox<>();
-        for (SortingAlgorithm algo : SortFactory.getAllAlgorithms()) {
-            singleAlgorithmComboBox.addItem(algo.getName());
-        }
-
-        // Initialize state
-        fileNameLabel = new JLabel("No file uploaded");
-        fileNameLabel.setFont(new Font("Segoe UI", Font.ITALIC, 12));
-        fileNameLabel.setForeground(new Color(100, 110, 120));
-
+        configureFrame();
+        initialiseComponents();
+        buildLayout();
+        attachEventHandlers();
         updateControlStates(false);
     }
 
-    private JPanel createHeaderPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.setBackground(new Color(41, 128, 185)); // Deep Blue Header
-        panel.setBorder(new EmptyBorder(12, 20, 12, 20));
+    // -------------------------------------------------------------------------
+    // Frame setup
+    // -------------------------------------------------------------------------
+    private void configureFrame() {
+        setTitle("Sorting Algorithm Performance Evaluator");
 
-        JLabel titleLabel = new JLabel("University of Colombo - Faculty of Technology | Department of ICT");
-        titleLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        titleLabel.setForeground(new Color(236, 240, 241));
+        // Use the same application logo in the Windows title bar/taskbar.
+        ImageIcon appIcon = loadScaledIcon("/icons/app_icon.png", 64, 64);
+        if (appIcon != null) {
+            setIconImage(appIcon.getImage());
+        }
 
-        JLabel subtitleLabel = new JLabel("IC4302 – Programming III: Sorting Algorithm Performance Evaluator");
-        subtitleLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        subtitleLabel.setForeground(Color.WHITE);
-
-        panel.add(titleLabel, BorderLayout.NORTH);
-        panel.add(subtitleLabel, BorderLayout.CENTER);
-        return panel;
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(1440, 900);
+        setMinimumSize(new Dimension(1180, 760));
+        setLocationRelativeTo(null);
+        getContentPane().setBackground(APP_BG);
+        setLayout(new BorderLayout());
     }
 
-    private JPanel createControlPanel() {
-        JPanel mainControlPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 10));
-        mainControlPanel.setBackground(new Color(245, 247, 250));
-        mainControlPanel.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(220, 225, 230)));
+    private void initialiseComponents() {
+        performanceTablePanel = new PerformanceTablePanel();
+        barChartPanel = new BarChartPanel();
 
-        uploadBtn = new JButton("📁 Upload CSV");
-        uploadBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        uploadBtn.setBackground(new Color(52, 152, 219));
-        uploadBtn.setForeground(Color.BLACK);
+        fileNameLabel = new JLabel("No CSV file selected");
+        fileNameLabel.setFont(FONT_NORMAL);
+        fileNameLabel.setForeground(TEXT_SECONDARY);
+
+        datasetInfoLabel = new JLabel("Upload a dataset to begin");
+        datasetInfoLabel.setFont(FONT_SMALL);
+        datasetInfoLabel.setForeground(TEXT_SECONDARY);
 
         columnComboBox = new JComboBox<>();
-        columnComboBox.setPreferredSize(new Dimension(180, 26));
+        styleComboBox(columnComboBox);
+        columnComboBox.setPreferredSize(new Dimension(220, 38));
 
-        orderComboBox = new JComboBox<>(new String[]{"Ascending (Low to High)", "Descending (High to Low)"});
-        orderComboBox.setPreferredSize(new Dimension(190, 26));
+        uploadBtn = new GradientButton("Browse CSV", BLUE, new Color(30, 111, 230));
+        uploadBtn.setPreferredSize(new Dimension(130, 40));
 
-        evaluateAllBtn = new JButton("⚡ Evaluate All");
-        evaluateAllBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        evaluateAllBtn.setBackground(new Color(46, 204, 113));
-        evaluateAllBtn.setForeground(Color.BLACK);
+        evaluateAllBtn = new GradientButton("Run Sorting Algorithms", PURPLE, BLUE);
+        evaluateAllBtn.setIcon(new PlayIcon(15, Color.WHITE));
+        evaluateAllBtn.setIconTextGap(10);
+        evaluateAllBtn.setHorizontalAlignment(SwingConstants.CENTER);
+        evaluateAllBtn.setPreferredSize(new Dimension(260, 50));
 
-        runSingleBtn = new JButton("▶ Run Single");
-        runSingleBtn.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        exportBtn = createSecondaryButton("Export Sorted CSV");
+        exportBtn.setIcon(new ExportIcon(15, TEXT_PRIMARY));
+        exportBtn.setIconTextGap(8);
+        exportBtn.setPreferredSize(new Dimension(190, 40));
 
-        exportBtn = new JButton("💾 Export CSV");
-        exportBtn.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        winnerNameLabel = new JLabel("Waiting for evaluation");
+        winnerNameLabel.setFont(new Font("Segoe UI", Font.BOLD, 25));
+        winnerNameLabel.setForeground(TEXT_PRIMARY);
 
-        mainControlPanel.add(uploadBtn);
-        mainControlPanel.add(new JLabel("Numeric Column:"));
-        mainControlPanel.add(columnComboBox);
-        mainControlPanel.add(new JLabel("Order:"));
-        mainControlPanel.add(orderComboBox);
-        mainControlPanel.add(evaluateAllBtn);
-        mainControlPanel.add(exportBtn);
+        winnerTimeLabel = new JLabel("--");
+        winnerTimeLabel.setFont(new Font("Segoe UI", Font.BOLD, 34));
+        winnerTimeLabel.setForeground(PURPLE);
 
-        return mainControlPanel;
+        winnerDetailsLabel = new JLabel("Run all five algorithms to identify the fastest one.");
+        winnerDetailsLabel.setFont(FONT_NORMAL);
+        winnerDetailsLabel.setForeground(TEXT_SECONDARY);
+
     }
 
-    private JPanel createDocsPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.setBackground(Color.WHITE);
-        panel.setBorder(new EmptyBorder(20, 25, 20, 25));
+    private void buildLayout() {
+        JPanel root = new JPanel(new BorderLayout(0, 10));
+        root.setBackground(APP_BG);
+        root.setBorder(new EmptyBorder(12, 20, 8, 20));
 
-        JEditorPane editorPane = new JEditorPane();
-        editorPane.setEditable(false);
-        editorPane.setContentType("text/html");
-        editorPane.setText("<html><body style='font-family: Segoe UI, sans-serif; font-size: 13px; color: #2c3e50;'>"
-                + "<h2>IC4302 Group Assignment: Sorting Algorithm Performance Evaluation</h2>"
-                + "<p>This Java Swing application benchmarks 5 fundamental sorting algorithms on numeric columns loaded from user CSV datasets.</p>"
-                + "<h3>Member Task Delegation (Presentation Structure):</h3>"
-                + "<ul>"
-                + "<li><b>Member 1:</b> File Upload & CSV Dataset Handling (<code>com.sortingapp.csv</code>, <code>CSVData</code>, <code>CSVReader</code>)</li>"
-                + "<li><b>Member 2:</b> Sorting Algorithm Implementations (Insertion, Shell, Merge, Quick, Heap Sort)</li>"
-                + "<li><b>Member 3:</b> Performance Evaluation System & GUI Interface (<code>PerformanceEvaluator</code>, <code>BarChartPanel</code>, <code>MainFrame</code>)</li>"
-                + "</ul>"
-                + "<h3>Implemented Algorithms & Complexity:</h3>"
-                + "<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse; border-color:#bdc3c7;'>"
-                + "<tr bgcolor='#ecf0f1'><th>Algorithm</th><th>Best Time</th><th>Average Time</th><th>Worst Time</th><th>Space</th></tr>"
-                + "<tr><td><b>Insertion Sort</b></td><td>O(n)</td><td>O(n²)</td><td>O(n²)</td><td>O(1)</td></tr>"
-                + "<tr><td><b>Shell Sort</b></td><td>O(n log n)</td><td>O(n^1.5)</td><td>O(n²)</td><td>O(1)</td></tr>"
-                + "<tr><td><b>Merge Sort</b></td><td>O(n log n)</td><td>O(n log n)</td><td>O(n log n)</td><td>O(n)</td></tr>"
-                + "<tr><td><b>Quick Sort</b></td><td>O(n log n)</td><td>O(n log n)</td><td>O(n²)</td><td>O(log n)</td></tr>"
-                + "<tr><td><b>Heap Sort</b></td><td>O(n log n)</td><td>O(n log n)</td><td>O(n log n)</td><td>O(1)</td></tr>"
-                + "</table>"
-                + "</body></html>");
+        JPanel top = new JPanel();
+        top.setOpaque(false);
+        top.setLayout(new BoxLayout(top, BoxLayout.Y_AXIS));
+        top.add(createHeaderPanel());
+        top.add(Box.createVerticalStrut(10));
+        top.add(createControlPanel());
 
-        panel.add(new JScrollPane(editorPane), BorderLayout.CENTER);
+        root.add(top, BorderLayout.NORTH);
+        root.add(createDashboardPanel(), BorderLayout.CENTER);
+
+        setContentPane(root);
+    }
+
+    // -------------------------------------------------------------------------
+    // Header
+    // -------------------------------------------------------------------------
+    private JPanel createHeaderPanel() {
+        JPanel panel = new JPanel(new BorderLayout(18, 0));
+        panel.setOpaque(false);
+
+        JComponent logo = createHeaderLogo();
+
+        JPanel textPanel = new JPanel();
+        textPanel.setOpaque(false);
+        textPanel.setLayout(new BoxLayout(textPanel, BoxLayout.Y_AXIS));
+
+        JLabel title = new JLabel("Sorting Algorithm Performance Evaluator");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 30));
+        title.setForeground(TEXT_PRIMARY);
+
+        JLabel subtitle = new JLabel(
+                "Upload a CSV file, select a numeric column and compare the performance of five sorting algorithms."
+        );
+        subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 15));
+        subtitle.setForeground(TEXT_SECONDARY);
+
+        textPanel.add(Box.createVerticalGlue());
+        textPanel.add(title);
+        textPanel.add(Box.createVerticalStrut(5));
+        textPanel.add(subtitle);
+        textPanel.add(Box.createVerticalGlue());
+
+        JPanel coursePanel = new JPanel();
+        coursePanel.setOpaque(false);
+        coursePanel.setLayout(new BoxLayout(coursePanel, BoxLayout.Y_AXIS));
+
+        JLabel course = new JLabel("IC4302 - Programming III", SwingConstants.RIGHT);
+        course.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        course.setForeground(TEXT_PRIMARY);
+        course.setAlignmentX(Component.RIGHT_ALIGNMENT);
+
+        JLabel department = new JLabel("Department of ICT | Faculty of Technology", SwingConstants.RIGHT);
+        department.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        department.setForeground(TEXT_SECONDARY);
+        department.setAlignmentX(Component.RIGHT_ALIGNMENT);
+
+        coursePanel.add(Box.createVerticalGlue());
+        coursePanel.add(course);
+        coursePanel.add(Box.createVerticalStrut(5));
+        coursePanel.add(department);
+        coursePanel.add(Box.createVerticalGlue());
+
+        panel.add(logo, BorderLayout.WEST);
+        panel.add(textPanel, BorderLayout.CENTER);
+        panel.add(coursePanel, BorderLayout.EAST);
         return panel;
+    }
+
+    // -------------------------------------------------------------------------
+    // Input controls
+    // -------------------------------------------------------------------------
+    private JPanel createControlPanel() {
+        RoundedPanel card = new RoundedPanel(CARD_BG, 20);
+        card.setLayout(new BorderLayout(0, 8));
+        card.setBorder(new EmptyBorder(12, 16, 12, 16));
+
+        JPanel controls = new JPanel(new GridBagLayout());
+        controls.setOpaque(false);
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridy = 0;
+        gbc.weighty = 1;
+        gbc.fill = GridBagConstraints.BOTH;
+
+        gbc.gridx = 0;
+        gbc.weightx = 1.25;
+        controls.add(createFileSelectorBlock(), gbc);
+
+        gbc.gridx = 1;
+        gbc.weightx = 0;
+        gbc.insets = new Insets(3, 16, 3, 16);
+        controls.add(createVerticalSeparator(), gbc);
+
+        gbc.gridx = 2;
+        gbc.weightx = 0.8;
+        gbc.insets = new Insets(0, 0, 0, 0);
+        controls.add(createColumnBlock(), gbc);
+
+        gbc.gridx = 3;
+        gbc.weightx = 0;
+        gbc.insets = new Insets(3, 16, 3, 16);
+        controls.add(createVerticalSeparator(), gbc);
+
+        gbc.gridx = 4;
+        gbc.weightx = 0.9;
+        gbc.insets = new Insets(0, 0, 0, 0);
+        controls.add(createExportBlock(), gbc);
+
+        card.add(controls, BorderLayout.CENTER);
+
+        JPanel runButtonPanel = new JPanel(new BorderLayout());
+        runButtonPanel.setOpaque(false);
+        runButtonPanel.setBorder(new EmptyBorder(12, 0, 12, 0));
+        runButtonPanel.add(evaluateAllBtn, BorderLayout.CENTER);
+
+        card.add(runButtonPanel, BorderLayout.SOUTH);
+        return card;
+    }
+
+    private JPanel createFileSelectorBlock() {
+        JPanel block = new JPanel(new BorderLayout(12, 0));
+        block.setOpaque(false);
+
+        ControlIconPanel icon = new ControlIconPanel(ControlIconPanel.IconType.FILE);
+        icon.setPreferredSize(new Dimension(54, 54));
+        block.add(icon, BorderLayout.WEST);
+
+        JPanel content = new JPanel(new BorderLayout(10, 5));
+        content.setOpaque(false);
+
+        JLabel label = new JLabel("CSV File");
+        label.setFont(FONT_LABEL);
+        label.setForeground(TEXT_PRIMARY);
+
+        JPanel fileRow = new JPanel(new BorderLayout(10, 0));
+        fileRow.setOpaque(false);
+
+        RoundedPanel fileDisplay = new RoundedPanel(new Color(249, 251, 255), 12);
+        fileDisplay.setLayout(new BorderLayout());
+        fileDisplay.setBorder(new EmptyBorder(8, 12, 8, 12));
+        fileDisplay.add(fileNameLabel, BorderLayout.CENTER);
+
+        fileRow.add(fileDisplay, BorderLayout.CENTER);
+        fileRow.add(uploadBtn, BorderLayout.EAST);
+
+        content.add(label, BorderLayout.NORTH);
+        content.add(fileRow, BorderLayout.CENTER);
+        content.add(datasetInfoLabel, BorderLayout.SOUTH);
+        block.add(content, BorderLayout.CENTER);
+        return block;
+    }
+
+    private JPanel createColumnBlock() {
+        JPanel block = new JPanel(new BorderLayout(12, 0));
+        block.setOpaque(false);
+
+        ControlIconPanel icon = new ControlIconPanel(ControlIconPanel.IconType.DATABASE);
+        icon.setPreferredSize(new Dimension(54, 54));
+        block.add(icon, BorderLayout.WEST);
+
+        JPanel content = new JPanel(new BorderLayout(0, 7));
+        content.setOpaque(false);
+
+        JLabel label = new JLabel("Numeric Column");
+        label.setFont(FONT_LABEL);
+        label.setForeground(TEXT_PRIMARY);
+
+        JLabel hint = new JLabel("Choose the column to sort");
+        hint.setFont(FONT_SMALL);
+        hint.setForeground(TEXT_SECONDARY);
+
+        content.add(label, BorderLayout.NORTH);
+        content.add(columnComboBox, BorderLayout.CENTER);
+        content.add(hint, BorderLayout.SOUTH);
+        block.add(content, BorderLayout.CENTER);
+        return block;
+    }
+
+    private JPanel createExportBlock() {
+        JPanel block = new JPanel(new BorderLayout(12, 0));
+        block.setOpaque(false);
+
+        ControlIconPanel icon = new ControlIconPanel(ControlIconPanel.IconType.EXPORT);
+        icon.setPreferredSize(new Dimension(54, 54));
+        block.add(icon, BorderLayout.WEST);
+
+        JPanel content = new JPanel(new BorderLayout(0, 7));
+        content.setOpaque(false);
+
+        JLabel label = new JLabel("Export Results");
+        label.setFont(FONT_LABEL);
+        label.setForeground(TEXT_PRIMARY);
+
+        JLabel hint = new JLabel("Available after running the algorithms");
+        hint.setFont(FONT_SMALL);
+        hint.setForeground(TEXT_SECONDARY);
+
+        content.add(label, BorderLayout.NORTH);
+        content.add(exportBtn, BorderLayout.CENTER);
+        content.add(hint, BorderLayout.SOUTH);
+        block.add(content, BorderLayout.CENTER);
+        return block;
+    }
+
+    private JSeparator createVerticalSeparator() {
+        JSeparator separator = new JSeparator(SwingConstants.VERTICAL);
+        separator.setForeground(BORDER);
+        separator.setPreferredSize(new Dimension(1, 58));
+        return separator;
+    }
+
+    // -------------------------------------------------------------------------
+    // Dashboard
+    // -------------------------------------------------------------------------
+    private JPanel createDashboardPanel() {
+        JPanel dashboard = new JPanel(new GridBagLayout());
+        dashboard.setOpaque(false);
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.fill = GridBagConstraints.BOTH;
+
+        // Top row: performance table and fastest-algorithm summary.
+        gbc.gridy = 0;
+        gbc.weighty = 0.0;
+
+        gbc.gridx = 0;
+        gbc.gridwidth = 1;
+        gbc.weightx = 1.08;
+        gbc.insets = new Insets(0, 0, 8, 8);
+        JPanel performanceCard = createPerformanceResultsCard();
+        performanceCard.setPreferredSize(new Dimension(100, 235));
+        performanceCard.setMinimumSize(new Dimension(100, 225));
+        dashboard.add(performanceCard, gbc);
+
+        gbc.gridx = 1;
+        gbc.weightx = 0.92;
+        gbc.insets = new Insets(0, 8, 8, 0);
+        JPanel winnerCard = createWinnerCard();
+        winnerCard.setPreferredSize(new Dimension(100, 235));
+        winnerCard.setMinimumSize(new Dimension(100, 225));
+        dashboard.add(winnerCard, gbc);
+
+        // Bottom row: the chart now spans the complete dashboard width.
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        gbc.gridwidth = 2;
+        gbc.weightx = 1.0;
+        gbc.weighty = 1.0;
+        gbc.insets = new Insets(8, 0, 0, 0);
+        dashboard.add(createChartCard(), gbc);
+
+        return dashboard;
+    }
+
+    private JPanel createPerformanceResultsCard() {
+        RoundedPanel card = new RoundedPanel(CARD_BG, 20);
+        card.setLayout(new BorderLayout(0, 6));
+        card.setBorder(new EmptyBorder(10, 12, 10, 12));
+
+        JPanel heading = createSectionHeading(
+                "Performance Results",
+                "Execution time and metrics for all five sorting algorithms."
+        );
+
+        performanceTablePanel.setBorder(null);
+        performanceTablePanel.setBackground(CARD_BG);
+
+        card.add(heading, BorderLayout.NORTH);
+        card.add(performanceTablePanel, BorderLayout.CENTER);
+        return card;
+    }
+
+    private JPanel createWinnerCard() {
+        GradientWinnerPanel card = new GradientWinnerPanel();
+        card.setLayout(new BorderLayout(18, 0));
+        card.setBorder(new EmptyBorder(18, 22, 18, 22));
+
+        TrophyGraphicPanel trophyGraphic = new TrophyGraphicPanel();
+        trophyGraphic.setPreferredSize(new Dimension(175, 165));
+
+        JPanel text = new JPanel();
+        text.setOpaque(false);
+        text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
+
+        JLabel smallTitle = new JLabel("Fastest Algorithm");
+        smallTitle.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+        smallTitle.setForeground(TEXT_SECONDARY);
+
+        winnerNameLabel.setFont(new Font("Segoe UI", Font.BOLD, 27));
+        winnerTimeLabel.setFont(new Font("Segoe UI", Font.BOLD, 36));
+
+        text.add(Box.createVerticalGlue());
+        text.add(smallTitle);
+        text.add(Box.createVerticalStrut(5));
+        text.add(winnerNameLabel);
+        text.add(Box.createVerticalStrut(5));
+        text.add(winnerTimeLabel);
+        text.add(Box.createVerticalStrut(7));
+        text.add(winnerDetailsLabel);
+        text.add(Box.createVerticalGlue());
+
+        card.add(trophyGraphic, BorderLayout.WEST);
+        card.add(text, BorderLayout.CENTER);
+        return card;
+    }
+
+    private JPanel createChartCard() {
+        RoundedPanel card = new RoundedPanel(CARD_BG, 20);
+        card.setLayout(new BorderLayout(0, 2));
+        card.setBorder(new EmptyBorder(8, 10, 8, 10));
+
+        barChartPanel.setBorder(null);
+        barChartPanel.setBackground(CARD_BG);
+        barChartPanel.setPreferredSize(new Dimension(1100, 410));
+
+        JPanel heading = createSectionHeading(
+                "Execution Time Comparison",
+                "Lower execution time indicates better performance for this dataset."
+        );
+
+        card.add(heading, BorderLayout.NORTH);
+        card.add(barChartPanel, BorderLayout.CENTER);
+        return card;
+    }
+
+    private JPanel createSectionHeading(String titleText, String subtitleText) {
+        JPanel panel = new JPanel();
+        panel.setOpaque(false);
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+
+        JLabel title = new JLabel(titleText);
+        title.setFont(FONT_SECTION);
+        title.setForeground(TEXT_PRIMARY);
+
+        JLabel subtitle = new JLabel(subtitleText);
+        subtitle.setFont(FONT_SMALL);
+        subtitle.setForeground(TEXT_SECONDARY);
+
+        panel.add(title);
+        panel.add(Box.createVerticalStrut(2));
+        panel.add(subtitle);
+        return panel;
+    }
+
+    // -------------------------------------------------------------------------
+    // Event handling
+    // -------------------------------------------------------------------------
+    private void attachEventHandlers() {
+        uploadBtn.addActionListener(e -> onUploadCSV());
+        evaluateAllBtn.addActionListener(e -> onEvaluateAll());
+        exportBtn.addActionListener(e -> onExportSortedCSV());
+
+        columnComboBox.addActionListener(e -> {
+            if (!suppressSelectionEvents) {
+                onColumnSelected();
+            }
+        });
     }
 
     private void onUploadCSV() {
@@ -220,48 +512,75 @@ public class MainFrame extends JFrame {
         fileChooser.setDialogTitle("Select a CSV Dataset File");
         fileChooser.setFileFilter(new FileNameExtensionFilter("CSV Files (*.csv)", "csv"));
 
-        // Default to project directory test-data if present
         File testDir = new File("test-data");
         if (testDir.exists()) {
             fileChooser.setCurrentDirectory(testDir);
         }
 
         int userSelection = fileChooser.showOpenDialog(this);
-        if (userSelection == JFileChooser.APPROVE_OPTION) {
-            File selectedFile = fileChooser.getSelectedFile();
-            try {
-                CSVData data = CSVReader.readCSV(selectedFile);
-                if (data.getNumericColumnIndices().isEmpty()) {
-                    JOptionPane.showMessageDialog(this,
-                            "The selected CSV file does not contain any numeric columns suitable for sorting.",
-                            "No Numeric Columns", JOptionPane.WARNING_MESSAGE);
-                    return;
-                }
+        if (userSelection != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
 
-                currentCSVData = data;
-                currentFile = selectedFile;
-                populateColumnDropdown();
-                rawDataTablePanel.loadCSVData(currentCSVData, getSelectedColumnIndex());
+        File selectedFile = fileChooser.getSelectedFile();
 
-                updateControlStates(true);
-                statusLabel.setText(" Loaded file: " + selectedFile.getName() + " (" + data.getRowCount() + " rows, "
-                        + data.getNumericColumnIndices().size() + " numeric columns available)");
+        try {
+            CSVData data = CSVReader.readCSV(selectedFile);
 
-            } catch (IOException ex) {
-                JOptionPane.showMessageDialog(this,
-                        "Error reading CSV file:\n" + ex.getMessage(),
-                        "File Read Error", JOptionPane.ERROR_MESSAGE);
-                statusLabel.setText(" Error reading file: " + ex.getMessage());
+            if (data.getNumericColumnIndices().isEmpty()) {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "The selected CSV file does not contain any numeric columns suitable for sorting.",
+                        "No Numeric Columns",
+                        JOptionPane.WARNING_MESSAGE
+                );
+                return;
             }
+
+            currentCSVData = data;
+            currentSummary = null;
+
+            suppressSelectionEvents = true;
+            populateColumnDropdown();
+            suppressSelectionEvents = false;
+
+            fileNameLabel.setText(selectedFile.getName());
+            datasetInfoLabel.setText(String.format(
+                    "%,d rows  |  %d columns  |  %d numeric columns",
+                    data.getRowCount(),
+                    data.getColumnCount(),
+                    data.getNumericColumnIndices().size()
+            ));
+
+            int selectedColumn = getSelectedColumnIndex();
+            if (selectedColumn >= 0) {
+                currentColumnValues = currentCSVData.getColumnValuesAsDouble(selectedColumn);
+            }
+
+            resetEvaluationVisuals();
+            updateControlStates(true);
+
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Error reading CSV file:\n" + ex.getMessage(),
+                    "File Read Error",
+                    JOptionPane.ERROR_MESSAGE
+            );
         }
     }
 
     private void populateColumnDropdown() {
         columnComboBox.removeAllItems();
+
         if (currentCSVData != null) {
-            for (String colName : currentCSVData.getNumericColumnNames()) {
-                columnComboBox.addItem(colName);
+            for (String columnName : currentCSVData.getNumericColumnNames()) {
+                columnComboBox.addItem(columnName);
             }
+        }
+
+        if (columnComboBox.getItemCount() > 0) {
+            columnComboBox.setSelectedIndex(0);
         }
     }
 
@@ -269,73 +588,102 @@ public class MainFrame extends JFrame {
         if (currentCSVData == null || columnComboBox.getSelectedIndex() < 0) {
             return -1;
         }
-        int numIndex = columnComboBox.getSelectedIndex();
-        return currentCSVData.getNumericColumnIndices().get(numIndex);
+
+        int numericListIndex = columnComboBox.getSelectedIndex();
+        return currentCSVData.getNumericColumnIndices().get(numericListIndex);
     }
 
     private void onColumnSelected() {
         int colIndex = getSelectedColumnIndex();
-        if (colIndex != -1 && currentCSVData != null) {
-            currentColumnValues = currentCSVData.getColumnValuesAsDouble(colIndex);
-            rawDataTablePanel.loadCSVData(currentCSVData, colIndex);
-        }
-    }
 
-    private void onEvaluateAll() {
-        if (currentCSVData == null || currentColumnValues == null) {
-            JOptionPane.showMessageDialog(this, "Please upload a CSV dataset first.", "No Data", JOptionPane.WARNING_MESSAGE);
+        if (colIndex == -1 || currentCSVData == null) {
             return;
         }
 
-        boolean ascending = orderComboBox.getSelectedIndex() == 0;
-        statusLabel.setText(" Evaluating sorting algorithms...");
+        currentColumnValues = currentCSVData.getColumnValuesAsDouble(colIndex);
+        invalidatePreviousEvaluation();
+    }
 
-        // Perform benchmarks
-        currentSummary = PerformanceEvaluator.evaluateAll(currentColumnValues, ascending);
+    private void onEvaluateAll() {
+        if (currentCSVData == null || currentColumnValues == null || currentColumnValues.length == 0) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Please upload a CSV dataset and select a numeric column first.",
+                    "No Data",
+                    JOptionPane.WARNING_MESSAGE
+            );
+            return;
+        }
 
-        // Update Performance Table & Bar Chart
-        List<SortingResult> results = currentSummary.getResults();
-        SortingResult best = currentSummary.getBestResult();
+        boolean ascending = true;
+        double[] valuesForEvaluation = currentColumnValues.clone();
+
+        setEvaluationRunning(true);
+
+        SwingWorker<PerformanceEvaluator.EvaluationSummary, Void> worker =
+                new SwingWorker<>() {
+                    @Override
+                    protected PerformanceEvaluator.EvaluationSummary doInBackground() {
+                        return PerformanceEvaluator.evaluateAll(valuesForEvaluation, ascending);
+                    }
+
+                    @Override
+                    protected void done() {
+                        try {
+                            currentSummary = get();
+                            displayEvaluationResults(currentSummary);
+                        } catch (Exception ex) {
+                            currentSummary = null;
+                            resetEvaluationVisuals();
+                            JOptionPane.showMessageDialog(
+                                    MainFrame.this,
+                                    "An error occurred while evaluating the algorithms:\n" + ex.getMessage(),
+                                    "Evaluation Error",
+                                    JOptionPane.ERROR_MESSAGE
+                            );
+                        } finally {
+                            setEvaluationRunning(false);
+                        }
+                    }
+                };
+
+        worker.execute();
+    }
+
+    private void displayEvaluationResults(PerformanceEvaluator.EvaluationSummary summary) {
+        if (summary == null) {
+            resetEvaluationVisuals();
+            return;
+        }
+
+        List<SortingResult> results = summary.getResults();
+        SortingResult best = summary.getBestResult();
 
         performanceTablePanel.updateResults(results, best);
         barChartPanel.setResults(results, best);
 
-        // Update Sorted Data Preview tab with the winner's sorted data
-        if (best != null && best.getSortedData() != null) {
-            String colName = (String) columnComboBox.getSelectedItem();
-            sortedTablePanel.loadSingleColumnData(colName, best.getSortedData());
+        if (best != null) {
+            winnerNameLabel.setText(best.getAlgorithmName());
+            winnerTimeLabel.setText(best.getFormattedExecutionTime());
+            winnerDetailsLabel.setText(String.format(
+                    "Fastest result for %,d values in the selected column.",
+                    best.getItemCount()
+            ));
+
+            exportBtn.setEnabled(true);
+        } else {
+            resetEvaluationVisuals();
         }
-
-        exportBtn.setEnabled(true);
-        statusLabel.setText(String.format(" Evaluation completed! Best Algorithm: %s (%s)",
-                best.getAlgorithmName(), best.getFormattedExecutionTime()));
-    }
-
-    private void onRunSingleAlgorithm() {
-        if (currentCSVData == null || currentColumnValues == null) {
-            JOptionPane.showMessageDialog(this, "Please upload a CSV dataset first.", "No Data", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        int algoIdx = singleAlgorithmComboBox.getSelectedIndex();
-        if (algoIdx < 0) return;
-
-        SortingAlgorithm algo = SortFactory.getAllAlgorithms().get(algoIdx);
-        boolean ascending = orderComboBox.getSelectedIndex() == 0;
-
-        SortingResult result = PerformanceEvaluator.evaluateSingle(algo, currentColumnValues, ascending);
-
-        JOptionPane.showMessageDialog(this,
-                String.format("Algorithm: %s\nExecution Time: %s\nComparisons: %,d\nSwaps/Shifts: %,d\nSorted Verified: %s",
-                        result.getAlgorithmName(), result.getFormattedExecutionTime(),
-                        result.getComparisonCount(), result.getSwapCount(),
-                        result.isSortedCorrectly() ? "Yes" : "No"),
-                "Single Algorithm Result", JOptionPane.INFORMATION_MESSAGE);
     }
 
     private void onExportSortedCSV() {
         if (currentCSVData == null || currentSummary == null || currentSummary.getBestResult() == null) {
-            JOptionPane.showMessageDialog(this, "No benchmark results available to export.", "Export Warning", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(
+                    this,
+                    "No current benchmark result is available to export.",
+                    "Export Warning",
+                    JOptionPane.WARNING_MESSAGE
+            );
             return;
         }
 
@@ -345,34 +693,495 @@ public class MainFrame extends JFrame {
         fileChooser.setFileFilter(new FileNameExtensionFilter("CSV Files (*.csv)", "csv"));
 
         int choice = fileChooser.showSaveDialog(this);
-        if (choice == JFileChooser.APPROVE_OPTION) {
-            File targetFile = fileChooser.getSelectedFile();
-            if (!targetFile.getName().toLowerCase().endsWith(".csv")) {
-                targetFile = new File(targetFile.getAbsolutePath() + ".csv");
-            }
-
-            try {
-                int colIndex = getSelectedColumnIndex();
-                double[] sortedValues = currentSummary.getBestResult().getSortedData();
-                CSVWriter.exportSortedCSV(targetFile, currentCSVData, colIndex, sortedValues);
-
-                JOptionPane.showMessageDialog(this,
-                        "Sorted dataset successfully exported to:\n" + targetFile.getAbsolutePath(),
-                        "Export Successful", JOptionPane.INFORMATION_MESSAGE);
-                statusLabel.setText(" Exported sorted CSV to: " + targetFile.getName());
-            } catch (IOException ex) {
-                JOptionPane.showMessageDialog(this,
-                        "Error saving file:\n" + ex.getMessage(),
-                        "Export Error", JOptionPane.ERROR_MESSAGE);
-            }
+        if (choice != JFileChooser.APPROVE_OPTION) {
+            return;
         }
+
+        File targetFile = fileChooser.getSelectedFile();
+        if (!targetFile.getName().toLowerCase().endsWith(".csv")) {
+            targetFile = new File(targetFile.getAbsolutePath() + ".csv");
+        }
+
+        try {
+            int colIndex = getSelectedColumnIndex();
+            double[] sortedValues = currentSummary.getBestResult().getSortedData();
+            CSVWriter.exportSortedCSV(targetFile, currentCSVData, colIndex, sortedValues);
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Sorted dataset successfully exported to:\n" + targetFile.getAbsolutePath(),
+                    "Export Successful",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
+
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Error saving file:\n" + ex.getMessage(),
+                    "Export Error",
+                    JOptionPane.ERROR_MESSAGE
+            );
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Result/state management
+    // -------------------------------------------------------------------------
+    private void invalidatePreviousEvaluation() {
+        currentSummary = null;
+        resetEvaluationVisuals();
+        exportBtn.setEnabled(false);
+    }
+
+    private void resetEvaluationVisuals() {
+        performanceTablePanel.updateResults(null, null);
+        barChartPanel.setResults(null, null);
+
+        winnerNameLabel.setText("Waiting for evaluation");
+        winnerTimeLabel.setText("--");
+        winnerDetailsLabel.setText("Run all five algorithms to identify the fastest one.");
+
+        exportBtn.setEnabled(false);
     }
 
     private void updateControlStates(boolean dataLoaded) {
         columnComboBox.setEnabled(dataLoaded);
-        orderComboBox.setEnabled(dataLoaded);
         evaluateAllBtn.setEnabled(dataLoaded);
-        runSingleBtn.setEnabled(dataLoaded);
         exportBtn.setEnabled(false);
+    }
+
+    private void setEvaluationRunning(boolean running) {
+        uploadBtn.setEnabled(!running);
+        columnComboBox.setEnabled(!running && currentCSVData != null);
+        evaluateAllBtn.setEnabled(!running && currentCSVData != null);
+        exportBtn.setEnabled(!running && currentSummary != null && currentSummary.getBestResult() != null);
+
+        evaluateAllBtn.setText(running ? "Evaluating..." : "Run Sorting Algorithms");
+    }
+
+    /**
+     * Creates the header logo from the same PNG used as the application icon.
+     * If the resource cannot be found, the original painted logo is used.
+     */
+    private JComponent createHeaderLogo() {
+        ImageIcon icon = loadScaledIcon("/icons/app_icon.png", 78, 78);
+
+        if (icon != null) {
+            JLabel logoLabel = new JLabel(icon);
+            logoLabel.setPreferredSize(new Dimension(78, 78));
+            logoLabel.setMinimumSize(new Dimension(78, 78));
+            logoLabel.setHorizontalAlignment(SwingConstants.CENTER);
+            logoLabel.setVerticalAlignment(SwingConstants.CENTER);
+            return logoLabel;
+        }
+
+        JPanel fallbackLogo = new GradientBadgePanel();
+        fallbackLogo.setPreferredSize(new Dimension(78, 78));
+        fallbackLogo.setMinimumSize(new Dimension(78, 78));
+        return fallbackLogo;
+    }
+
+    /**
+     * Loads and smoothly scales an image from src/main/resources.
+     */
+    private ImageIcon loadScaledIcon(String resourcePath, int width, int height) {
+        java.net.URL resource = getClass().getResource(resourcePath);
+        if (resource == null) {
+            return null;
+        }
+
+        Image original = new ImageIcon(resource).getImage();
+        Image scaled = original.getScaledInstance(width, height, Image.SCALE_SMOOTH);
+        return new ImageIcon(scaled);
+    }
+
+    // -------------------------------------------------------------------------
+    // Styling helpers
+    // -------------------------------------------------------------------------
+    private void styleComboBox(JComboBox<?> comboBox) {
+        comboBox.setFont(FONT_NORMAL);
+        comboBox.setForeground(TEXT_PRIMARY);
+        comboBox.setBackground(Color.WHITE);
+        comboBox.setFocusable(false);
+    }
+
+    private JButton createSecondaryButton(String text) {
+        JButton button = new JButton(text);
+        button.setFont(FONT_LABEL);
+        button.setForeground(TEXT_PRIMARY);
+        button.setBackground(Color.WHITE);
+        button.setFocusPainted(false);
+        button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        button.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BORDER, 1, true),
+                new EmptyBorder(8, 14, 8, 14)
+        ));
+        return button;
+    }
+
+    // -------------------------------------------------------------------------
+    // Small custom-painted components used by the light dashboard
+    // -------------------------------------------------------------------------
+    private static class ControlIconPanel extends JPanel {
+        enum IconType { FILE, DATABASE, EXPORT }
+
+        private final IconType type;
+
+        ControlIconPanel(IconType type) {
+            this.type = type;
+            setOpaque(false);
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            int size = Math.min(getWidth(), getHeight()) - 6;
+            int x = (getWidth() - size) / 2;
+            int y = (getHeight() - size) / 2;
+
+            Color start;
+            Color end;
+            if (type == IconType.FILE) {
+                start = new Color(29, 147, 255);
+                end = new Color(36, 92, 235);
+            } else if (type == IconType.DATABASE) {
+                start = new Color(183, 62, 255);
+                end = new Color(104, 56, 240);
+            } else {
+                start = new Color(44, 196, 125);
+                end = new Color(27, 150, 96);
+            }
+
+            g2.setPaint(new GradientPaint(x, y, start, x + size, y + size, end));
+            g2.fillOval(x, y, size, size);
+            g2.setColor(new Color(255, 255, 255, 55));
+            g2.fillOval(x + 4, y + 4, size - 8, size / 2);
+
+            g2.setColor(Color.WHITE);
+            g2.setStroke(new BasicStroke(2.3f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            int cx = getWidth() / 2;
+            int cy = getHeight() / 2;
+
+            if (type == IconType.FILE) {
+                int fw = 18;
+                int fh = 23;
+                int fx = cx - fw / 2;
+                int fy = cy - fh / 2;
+                g2.drawRoundRect(fx, fy, fw, fh, 2, 2);
+                g2.drawLine(fx + 11, fy, fx + 18, fy + 7);
+                g2.drawLine(fx + 11, fy, fx + 11, fy + 7);
+                g2.drawLine(fx + 11, fy + 7, fx + 18, fy + 7);
+                g2.drawLine(fx + 5, fy + 13, fx + 13, fy + 13);
+                g2.drawLine(fx + 5, fy + 17, fx + 13, fy + 17);
+            } else if (type == IconType.DATABASE) {
+                int dw = 22;
+                int dh = 20;
+                int dx = cx - dw / 2;
+                int dy = cy - dh / 2;
+                g2.drawOval(dx, dy, dw, 7);
+                g2.drawArc(dx, dy + 5, dw, 7, 180, 180);
+                g2.drawArc(dx, dy + 11, dw, 7, 180, 180);
+                g2.drawLine(dx, dy + 3, dx, dy + 15);
+                g2.drawLine(dx + dw, dy + 3, dx + dw, dy + 15);
+            } else {
+                // Export/download symbol.
+                g2.drawLine(cx, cy - 12, cx, cy + 5);
+                g2.drawLine(cx - 6, cy, cx, cy + 6);
+                g2.drawLine(cx + 6, cy, cx, cy + 6);
+                g2.drawRoundRect(cx - 10, cy + 9, 20, 5, 2, 2);
+            }
+
+            g2.dispose();
+        }
+    }
+
+    private static class RoundedPanel extends JPanel {
+        private final Color backgroundColor;
+        private final int radius;
+
+        RoundedPanel(Color backgroundColor, int radius) {
+            this.backgroundColor = backgroundColor;
+            this.radius = radius;
+            setOpaque(false);
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            // Soft shadow
+            g2.setColor(new Color(20, 46, 90, 13));
+            g2.fillRoundRect(2, 3, getWidth() - 4, getHeight() - 4, radius, radius);
+
+            g2.setColor(backgroundColor);
+            g2.fillRoundRect(0, 0, getWidth() - 3, getHeight() - 3, radius, radius);
+
+            g2.setColor(BORDER);
+            g2.drawRoundRect(0, 0, getWidth() - 4, getHeight() - 4, radius, radius);
+            g2.dispose();
+
+            super.paintComponent(g);
+        }
+    }
+
+    private static class GradientWinnerPanel extends JPanel {
+        GradientWinnerPanel() {
+            setOpaque(false);
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            GradientPaint gradient = new GradientPaint(
+                    0, 0, new Color(253, 249, 255),
+                    getWidth(), getHeight(), Color.WHITE
+            );
+            g2.setPaint(gradient);
+            g2.fillRoundRect(0, 0, getWidth() - 3, getHeight() - 3, 22, 22);
+
+            // Decorative circuit traces on the right, matching the reference design.
+            Color circuit = new Color(171, 91, 255, 55);
+            g2.setColor(circuit);
+            g2.setStroke(new BasicStroke(2f));
+            int w = getWidth();
+            int h = getHeight();
+            int x0 = Math.max(w - 190, w / 2 + 80);
+            int cy = h / 2;
+            g2.drawLine(x0, cy - 42, x0 + 34, cy - 42);
+            g2.drawLine(x0 + 34, cy - 42, x0 + 52, cy - 60);
+            g2.drawLine(x0 + 52, cy - 60, x0 + 100, cy - 60);
+            g2.drawLine(x0, cy + 42, x0 + 34, cy + 42);
+            g2.drawLine(x0 + 34, cy + 42, x0 + 52, cy + 60);
+            g2.drawLine(x0 + 52, cy + 60, x0 + 105, cy + 60);
+            for (int i = 0; i < 5; i++) {
+                g2.fillOval(x0 + i * 15, cy - 5, 6, 6);
+            }
+
+            // Faint speedometer graphic.
+            int sx = w - 92;
+            int sy = cy - 5;
+            g2.setStroke(new BasicStroke(8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g2.drawArc(sx - 32, sy - 32, 64, 64, 25, 130);
+            g2.setStroke(new BasicStroke(3f));
+            g2.drawLine(sx, sy, sx + 19, sy - 20);
+            g2.fillOval(sx - 4, sy - 4, 8, 8);
+
+            g2.setColor(new Color(189, 117, 255));
+            g2.setStroke(new BasicStroke(1.5f));
+            g2.drawRoundRect(0, 0, getWidth() - 4, getHeight() - 4, 22, 22);
+            g2.dispose();
+
+            super.paintComponent(g);
+        }
+    }
+
+    private static class TrophyGraphicPanel extends JPanel {
+        TrophyGraphicPanel() {
+            setOpaque(false);
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            int size = Math.min(getWidth() - 18, getHeight() - 18);
+            int cx = getWidth() / 2;
+            int cy = getHeight() / 2;
+            int x = cx - size / 2;
+            int y = cy - size / 2;
+
+            // Lavender halo and ring.
+            g2.setColor(new Color(244, 231, 255));
+            g2.fillOval(x, y, size, size);
+            g2.setColor(new Color(166, 90, 245));
+            g2.setStroke(new BasicStroke(5f));
+            g2.drawOval(x + 3, y + 3, size - 6, size - 6);
+
+            // Trophy bowl.
+            int bowlW = size * 38 / 100;
+            int bowlH = size * 25 / 100;
+            int bx = cx - bowlW / 2;
+            int by = cy - bowlH / 2 - 10;
+            g2.setColor(new Color(255, 174, 0));
+            g2.fillRoundRect(bx, by, bowlW, bowlH, 12, 12);
+
+            // Handles.
+            g2.setStroke(new BasicStroke(6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g2.drawArc(bx - 16, by + 3, 28, 30, 85, 180);
+            g2.drawArc(bx + bowlW - 12, by + 3, 28, 30, -85, 180);
+
+            // Stem and base.
+            g2.fillRoundRect(cx - 5, by + bowlH - 1, 10, 28, 5, 5);
+            g2.fillRoundRect(cx - 18, by + bowlH + 22, 36, 8, 5, 5);
+            g2.fillRoundRect(cx - 25, by + bowlH + 29, 50, 9, 5, 5);
+
+            // White star on trophy.
+            g2.setColor(Color.WHITE);
+            Polygon star = createStar(cx, by + bowlH / 2, 9, 4, 5);
+            g2.fillPolygon(star);
+            g2.dispose();
+        }
+
+        private Polygon createStar(int centerX, int centerY, int outerR, int innerR, int points) {
+            Polygon p = new Polygon();
+            for (int i = 0; i < points * 2; i++) {
+                double angle = -Math.PI / 2 + i * Math.PI / points;
+                int r = (i % 2 == 0) ? outerR : innerR;
+                p.addPoint(
+                        centerX + (int) Math.round(Math.cos(angle) * r),
+                        centerY + (int) Math.round(Math.sin(angle) * r)
+                );
+            }
+            return p;
+        }
+    }
+
+    private static class GradientBadgePanel extends JPanel {
+        GradientBadgePanel() {
+            setOpaque(false);
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            GradientPaint gradient = new GradientPaint(
+                    0, 0, new Color(232, 244, 255),
+                    getWidth(), getHeight(), new Color(241, 232, 255)
+            );
+            g2.setPaint(gradient);
+            g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 20, 20);
+
+            int baseY = getHeight() - 18;
+            int startX = 18;
+            int barWidth = 8;
+            int gap = 5;
+            int[] heights = {20, 33, 46, 57};
+            Color[] colors = {BLUE, new Color(50, 157, 255), PURPLE, PINK};
+
+            for (int i = 0; i < heights.length; i++) {
+                g2.setColor(colors[i]);
+                g2.fillRoundRect(
+                        startX + i * (barWidth + gap),
+                        baseY - heights[i],
+                        barWidth,
+                        heights[i],
+                        5,
+                        5
+                );
+            }
+
+            g2.dispose();
+            super.paintComponent(g);
+        }
+    }
+
+    private static class PlayIcon implements Icon {
+        private final int size;
+        private final Color color;
+
+        PlayIcon(int size, Color color) {
+            this.size = size;
+            this.color = color;
+        }
+
+        @Override
+        public int getIconWidth() { return size; }
+
+        @Override
+        public int getIconHeight() { return size; }
+
+        @Override
+        public void paintIcon(Component c, Graphics g, int x, int y) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(color);
+            Polygon triangle = new Polygon();
+            triangle.addPoint(x + 2, y + 1);
+            triangle.addPoint(x + 2, y + size - 1);
+            triangle.addPoint(x + size - 1, y + size / 2);
+            g2.fillPolygon(triangle);
+            g2.dispose();
+        }
+    }
+
+    private static class ExportIcon implements Icon {
+        private final int size;
+        private final Color color;
+
+        ExportIcon(int size, Color color) {
+            this.size = size;
+            this.color = color;
+        }
+
+        @Override
+        public int getIconWidth() { return size; }
+
+        @Override
+        public int getIconHeight() { return size; }
+
+        @Override
+        public void paintIcon(Component c, Graphics g, int x, int y) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g2.setColor(color);
+            int cx = x + size / 2;
+            g2.drawLine(cx, y + 1, cx, y + size - 6);
+            g2.drawLine(cx - 4, y + size - 10, cx, y + size - 6);
+            g2.drawLine(cx + 4, y + size - 10, cx, y + size - 6);
+            g2.drawLine(x + 2, y + size - 3, x + size - 2, y + size - 3);
+            g2.dispose();
+        }
+    }
+
+    private static class GradientButton extends JButton {
+        private final Color startColor;
+        private final Color endColor;
+
+        GradientButton(String text, Color startColor, Color endColor) {
+            super(text);
+            this.startColor = startColor;
+            this.endColor = endColor;
+
+            setFont(new Font("Segoe UI", Font.BOLD, 14));
+            setForeground(Color.WHITE);
+            setFocusPainted(false);
+            setBorderPainted(false);
+            setContentAreaFilled(false);
+            setOpaque(false);
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            setBorder(new EmptyBorder(10, 18, 10, 18));
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            Color first = isEnabled() ? startColor : new Color(185, 191, 205);
+            Color second = isEnabled() ? endColor : new Color(165, 172, 188);
+
+            if (getModel().isPressed()) {
+                first = first.darker();
+                second = second.darker();
+            }
+
+            GradientPaint gradient = new GradientPaint(0, 0, first, getWidth(), 0, second);
+            g2.setPaint(gradient);
+            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
+            g2.dispose();
+
+            super.paintComponent(g);
+        }
     }
 }
