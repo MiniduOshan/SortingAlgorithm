@@ -6,7 +6,7 @@ import javax.swing.*;
 
 /**
  * Entry point for the Sorting Algorithm Performance Evaluation Java Application.
- * 
+
  * Group Assignment: IC4302 – Programming III
  * Department of ICT, Faculty of Technology, University of Colombo.
  */
