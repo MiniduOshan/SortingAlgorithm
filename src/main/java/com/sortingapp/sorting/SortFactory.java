@@ -7,7 +7,6 @@ import java.util.List;
 /**
  * Factory class to instantiate and provide all available sorting algorithms.
  * 
- * Group Assignment Contribution:
  * Member 2: Implementation of sorting algorithms.
  */
 public class SortFactory {

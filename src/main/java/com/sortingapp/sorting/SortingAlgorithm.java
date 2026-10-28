@@ -6,7 +6,6 @@ import com.sortingapp.model.SortingResult;
  * Common interface for all sorting algorithm implementations.
  * Allows uniform execution and performance evaluation.
  * 
- * Group Assignment Contribution:
  * Member 2: Implementation of sorting algorithms.
  */
 public interface SortingAlgorithm {
