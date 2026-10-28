@@ -1,69 +1,102 @@
-# IC4302 – Programming III Group Assignment
-## Java Application for Sorting Algorithm Performance Evaluation
-**Faculty of Technology | Department of ICT | University of Colombo**
+# Sorting Algorithm Performance Evaluator
+
+**IC4302 – Programming III**  
+**Department of ICT | Faculty of Technology | University of Colombo**
 
 ---
 
-### 📌 Project Overview
-This project is a high-performance Java Swing application built for evaluating and benchmarking the execution time and efficiency of five fundamental sorting algorithms:
-1. **Insertion Sort** — $O(n^2)$ comparison sort.
-2. **Shell Sort** — $O(n \log n)$ to $O(n^{1.5})$ diminishing gap sort.
-3. **Merge Sort** — $O(n \log n)$ divide-and-conquer sort.
-4. **Quick Sort** — $O(n \log n)$ median-of-three 3-way partitioned sort (Dutch National Flag).
-5. **Heap Sort** — $O(n \log n)$ binary max/min heap sort.
+## 📌 Project Overview
 
-Users can upload custom datasets in `.csv` format (including Kaggle datasets), dynamically select any valid numeric column, evaluate algorithm execution times down to nanosecond precision using median-of-5 benchmarking, visualize performance via custom bar charts, and export sorted datasets back to CSV.
+The Sorting Algorithm Performance Evaluator is a Java Swing desktop application designed to compare the execution time and performance of five sorting algorithms using numerical data from CSV files.
 
----
+The application implements the following algorithms:
 
-### 👥 Group Guidelines & Task Delegation (Presentation Structure)
+1. **Insertion Sort** — Best: `O(n)`, Average: `O(n²)`, Worst: `O(n²)`. Sorts elements by inserting each value into its correct position.
+2. **Shell Sort** — Best: `O(n log n)`, Worst: `O(n²)`. An improved insertion sort that uses progressively smaller gaps. Average-case complexity depends on the gap sequence.
+3. **Merge Sort** — Best, Average and Worst: `O(n log n)`. Uses divide and conquer to split and merge sorted subarrays.
+4. **Quick Sort** — Average: `O(n log n)`, Worst: `O(n²)`. Uses median-of-three pivot selection and three-way partitioning, with `O(n)` performance for all-equal elements.
+5. **Heap Sort** — Best, Average and Worst: `O(n log n)`. Uses a binary max-heap to arrange elements in sorted order.
 
-In accordance with assignment guidelines, the codebase is modularized across 3 primary areas of contribution for presentation recording:
+Users can upload CSV datasets, select numeric columns, execute all five algorithms, and compare their execution times. The application uses five benchmark runs per algorithm and selects the median execution time to reduce measurement fluctuations.
 
-| Group Member | Primary Responsibilities | Java Packages / Classes |
-| :--- | :--- | :--- |
-| **Member 1** | CSV Dataset Upload, Parsing & Data Model | `com.sortingapp.model.CSVData`<br>`com.sortingapp.csv.CSVReader`<br>`com.sortingapp.csv.CSVWriter` |
-| **Member 2** | Implementation of 5 Sorting Algorithms & Verification | `com.sortingapp.sorting.SortingAlgorithm`<br>`InsertionSort`, `ShellSort`, `MergeSort`, `QuickSort`, `HeapSort`, `SortUtils` |
-| **Member 3** | Performance Evaluation Engine & Swing GUI Interface | `com.sortingapp.performance.PerformanceEvaluator`<br>`com.sortingapp.gui.MainFrame`<br>`BarChartPanel`, `PerformanceTablePanel` |
+Results are displayed through a performance table, a comparison chart, and a fastest-algorithm summary. Users can also export the sorted dataset as a CSV file.
 
 ---
 
-### 🚀 Key Features
+## 👥 Team Contributions
 
-- **Dataset Upload & Column Auto-Detection**:
-  - Uploads `.csv` files with validation for empty files, headerless data, and malformed CSV rows.
-  - Strictly validates numeric columns across all rows, safely rejecting missing values, empty strings, non-numeric text, `NaN`, and infinite values without silent zero-filling.
-  - Automatically identifies and indicates valid numeric columns in the column selector.
-- **5 High-Performance Sorting Algorithms**:
-  - Fully custom implementations with operation counter tracking (Comparisons and Swaps/Shifts).
-  - Quick Sort implements median-of-three 3-way partitioning to safely handle datasets with identical/duplicate values without excessive recursion or stack overflow.
-  - Works on exact independent copies of unsorted data to ensure unbiased benchmarks.
-  - Algorithm engine cleanly supports both **Ascending** and **Descending** sort orders.
-- **Performance Evaluation & Winner Detection**:
-  - High-resolution timing using `System.nanoTime()`.
-  - Executes 5 benchmark runs per algorithm and evaluates the median run time to minimize JVM/OS timing noise.
-  - Automatically highlights the **🏆 Fastest Algorithm** based on shortest median execution time.
-  - Ranks all algorithms from fastest to slowest with formatted times, comparison counts, and relative speedup ratios.
-- **Interactive Swing GUI & Visualizations**:
-  - Unified modern light dashboard layout featuring top control panel, performance summary card, and metrics table.
-  - Custom `BarChartPanel` rendering responsive vertical comparative bar chart dynamically scaled in nanoseconds, microseconds, milliseconds, or seconds.
-  - Responsive background benchmarking using `SwingWorker` to prevent UI freezing during large sorts.
-  - RFC 4180 compliant CSV exporter with proper header escaping, field quoting, and complete row preservation.
+| Group Member | Responsibilities | Main Java Classes |
+|---|---|---|
+| **E.M. Pabasara** — 2022T01560 | CSV file uploading, parsing, numeric column validation, dataset management and exporting | `CSVData.java`, `CSVReader.java`, `CSVWriter.java` |
+| **B.D.M.O.B. Wanigarathna** — 2022T01584 | Implementation and verification of the five sorting algorithms | `SortingAlgorithm.java`, `InsertionSort.java`, `ShellSort.java`, `MergeSort.java`, `QuickSort.java`, `HeapSort.java`, `SortUtils.java` |
+| **M.M.D. Karunathilake** — 2022T01542 | Performance evaluation, execution-time comparison, results reporting and graphical user interface | `PerformanceEvaluator.java`, `MainFrame.java`, `BarChartPanel.java`, `PerformanceTablePanel.java` |
 
 ---
 
-### 📁 Project Structure
+## 🚀 Key Features
 
-```
+### 1. CSV Dataset Management
+
+- Upload CSV files containing numerical and non-numerical data.
+- Automatically detect and display available columns.
+- Identify valid numeric columns for sorting.
+- Reject invalid numeric values, missing values, `NaN` and infinite values.
+- Display clear error messages for invalid files or column selections.
+- Support CSV files containing quoted fields and UTF-8 text.
+- Export sorted data while preserving the corresponding row information.
+
+### 2. Sorting Algorithms
+
+- Implements Insertion Sort, Shell Sort, Merge Sort, Quick Sort and Heap Sort.
+- Supports ascending and descending sorting within the algorithm implementations.
+- Uses separate copies of the original dataset for each algorithm.
+- Tracks comparisons and swaps or shifts during sorting.
+- Checks whether the resulting arrays are correctly sorted.
+- Includes three-way Quick Sort partitioning for improved handling of duplicate values.
+
+### 3. Performance Evaluation
+
+- Measures execution time using `System.nanoTime()`.
+- Runs each algorithm five times and calculates the median execution time.
+- Compares all five algorithms using the same original input values.
+- Automatically identifies the fastest algorithm based on the lowest measured median time.
+- Displays algorithm rankings, execution times, comparison counts and relative performance.
+- Uses a warm-up process to reduce some Java runtime timing fluctuations.
+
+### 4. Graphical User Interface
+
+- Developed using Java Swing.
+- Provides a simple dashboard for uploading datasets and selecting columns.
+- Displays a performance results table and execution-time comparison chart.
+- Highlights the fastest algorithm.
+- Uses `SwingWorker` to keep the interface responsive during evaluation.
+- Provides clear status messages and error notifications.
+- Includes an option to export the sorted CSV dataset.
+
+### 5. Testing and Validation
+
+- Automated unit testing using JUnit 5.
+- Tests sorting correctness with different input sizes and values.
+- Validates numeric column detection and CSV file handling.
+- Checks array integrity and correct sorting results.
+- Verifies performance comparison and fastest-algorithm selection.
+- Uses Maven for compilation, testing and building the application.
+
+---
+
+## 📁 Project Structure
+
+```text
 SortingAlgorithm/
 ├── pom.xml
 ├── README.md
 ├── test-data/
-│   ├── iris.csv                  (Iris dataset: 150 rows)
-│   ├── sample_students.csv       (Small dataset: 20 rows)
-│   ├── sample_sales_500.csv      (Medium dataset: 500 rows)
-│   ├── sample_housing_2000.csv   (Large dataset: 2,000 rows)
-│   └── students_performance.csv  (1,000 rows with numeric scores)
+│   ├── iris.csv
+│   ├── sample_students.csv
+│   ├── sample_sales_500.csv
+│   ├── sample_housing_2000.csv
+│   └── students_performance.csv
+│
 └── src/
     ├── main/
     │   ├── java/
@@ -106,41 +139,122 @@ SortingAlgorithm/
 
 ---
 
-### 💻 How to Compile & Run
+## 💻 Installation and Execution
 
-#### Option 1: Using Standard `javac` & `java` (Command Line)
-1. **Compile all Java source files**:
-   ```bash
-   javac -d target/classes -sourcepath src/main/java src/main/java/com/sortingapp/Main.java
-   ```
-2. **Run the Application**:
-   ```bash
-   java -cp target/classes com.sortingapp.Main
-   ```
+### Prerequisites
 
-#### Option 2: Using Maven
+- Java Development Kit (JDK) 17 or later
+- Apache Maven
+- Windows, Linux or macOS
+
+### Option 1: Using Maven (Recommended)
+
+**Step 1 — Open the project directory**
+
+```bash
+cd SortingAlgorithm
+```
+
+**Step 2 — Compile the application**
+
 ```bash
 mvn clean compile
-mvn test
-mvn exec:java -Dexec.mainClass="com.sortingapp.Main"
+```
+
+**Step 3 — Run the application**
+
+```bash
+java -cp target/classes com.sortingapp.Main
+```
+
+### Option 2: Using Java Compiler
+
+**Step 1 — Create the output directory**
+
+```bash
+mkdir -p target/classes
+```
+
+On Windows CMD, use:
+
+```cmd
+if not exist target\classes mkdir target\classes
+```
+
+**Step 2 — Compile the Java source files**
+
+```bash
+javac -d target/classes -sourcepath src/main/java src/main/java/com/sortingapp/Main.java
+```
+
+**Step 3 — Run the application**
+
+```bash
+java -cp target/classes com.sortingapp.Main
 ```
 
 ---
 
-### 🎤 Presentation Guide (Zoom Recording Script)
+## 🧪 Unit Testing
 
-When recording your Zoom presentation:
-1. **Self-Introduction**:
-   - Each member introduces themselves: *"I'm [Name], my student number is [T085XX]."*
-2. **Member 1 Speech (Dataset Upload & Handling)**:
-   - Demonstrate clicking **Browse CSV** and choosing a file from `test-data/` (e.g., `sample_students.csv` or `iris.csv`).
-   - Explain `CSVReader.java` line-by-line: reading file buffers, parsing RFC 4180 quotes, and validating numeric columns in `CSVData.java`.
-   - Show how non-numeric or missing data is handled safely without silent zero replacement.
-3. **Member 2 Speech (Sorting Algorithms)**:
-   - Demonstrate selecting a valid numeric column (e.g. `GPA` or `TotalRevenue`).
-   - Explain the implementations of Insertion Sort, Shell Sort, Merge Sort, Quick Sort (including median-of-three 3-way partition for duplicate values), and Heap Sort in `com.sortingapp.sorting`.
-   - Highlight array copy isolation and verification with `SortUtils.isSorted()`.
-4. **Member 3 Speech (Performance & GUI)**:
-   - Click **Run Sorting Algorithms**.
-   - Point out the winner card 🏆, execution times in milliseconds/microseconds, operation counts (comparisons, swaps/shifts), and ranking.
-   - Show the custom `BarChartPanel` visual rendering and export the sorted dataset with **Export Sorted CSV**.
+The project uses JUnit 5 for automated testing.
+
+Run all tests using Maven:
+
+```bash
+mvn clean test
+```
+
+The tests cover:
+
+- Sorting algorithm correctness
+- Ascending and descending sorting
+- Duplicate values and edge cases
+- CSV parsing and validation
+- Original array preservation
+- Performance evaluation and result ranking
+
+Detailed test reports are generated in:
+
+```text
+target/surefire-reports/
+```
+
+To compile, test and package the application:
+
+```bash
+mvn clean package
+```
+
+---
+
+## 📊 How to Use
+
+1. **Launch the application** using one of the methods above.
+2. **Upload a CSV file** using the Browse CSV button.
+3. **Select a numeric column** from the dropdown list.
+4. **Run the sorting algorithms** using the Run Sorting Algorithms button.
+5. **View the results** in the performance table and comparison chart.
+6. **Identify the fastest algorithm** from the performance summary.
+7. **Export the sorted data** using the Export Sorted CSV button.
+
+**Note:** Execution times may vary between runs due to system activity and Java runtime optimisation. The fastest algorithm is determined dynamically using the measured median execution times.
+
+---
+
+## 🛠 Technologies Used
+
+| Technology | Purpose |
+|---|---|
+| Java | Core application development |
+| Java Swing | Graphical user interface |
+| Maven | Project build and dependency management |
+| JUnit 5 | Automated unit testing |
+| CSV | Dataset input and sorted-data export |
+| Git | Version control |
+
+---
+
+## Conclusion
+
+The Sorting Algorithm Performance Evaluator provides a practical way to execute and compare five sorting algorithms using CSV datasets. It combines sorting implementations, data validation, execution-time measurement and performance visualisation in a single Java desktop application.
