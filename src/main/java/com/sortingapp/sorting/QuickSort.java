@@ -6,8 +6,10 @@ import java.util.Arrays;
 /**
  * Implementation of Quick Sort algorithm.
  * Quick Sort is a highly efficient divide-and-conquer sorting algorithm.
- * Uses Median-of-Three pivot selection for improved performance on pre-sorted arrays.
- * Time Complexity: O(n log n) Best/Avg, O(n^2) Worst. Space Complexity: O(log n).
+ * Uses Median-of-Three pivot selection and 3-way partitioning (Dutch National Flag)
+ * to handle large datasets containing many duplicate/identical values safely without
+ * excessive recursion or stack overflow.
+ * Time Complexity: O(n log n) Best/Avg, O(n^2) Worst (O(n) on identical keys). Space Complexity: O(log n).
  * 
  * Group Assignment Contribution:
  * Member 2: Implementation of sorting algorithms.
@@ -24,7 +26,7 @@ public class QuickSort implements SortingAlgorithm {
 
     @Override
     public String getDescription() {
-        return "Divide-and-conquer algorithm that selects a pivot element and partitions the array into sub-arrays of smaller and larger elements.";
+        return "Divide-and-conquer algorithm that selects a pivot element and partitions the array into sub-arrays of smaller, equal, and larger elements.";
     }
 
     @Override
@@ -57,32 +59,45 @@ public class QuickSort implements SortingAlgorithm {
     }
 
     private void quickSort(double[] arr, int low, int high, boolean ascending) {
-        if (low < high) {
-            int pi = partition(arr, low, high, ascending);
-
-            quickSort(arr, low, pi - 1, ascending);
-            quickSort(arr, pi + 1, high, ascending);
+        if (low >= high) {
+            return;
         }
-    }
 
-    private int partition(double[] arr, int low, int high, boolean ascending) {
         // Median-of-three pivot selection to optimize performance
         int mid = low + (high - low) / 2;
         medianOfThree(arr, low, mid, high, ascending);
 
-        double pivot = arr[high];
-        int i = low - 1;
+        double pivot = arr[mid];
+        int lt = low;
+        int gt = high;
+        int i = low;
 
-        for (int j = low; j < high; j++) {
+        // 3-way partitioning (Dutch National Flag)
+        while (i <= gt) {
             comparisons++;
-            boolean condition = ascending ? (arr[j] < pivot) : (arr[j] > pivot);
-            if (condition) {
+            int cmp;
+            if (arr[i] == pivot) {
+                cmp = 0;
+            } else if (ascending ? (arr[i] < pivot) : (arr[i] > pivot)) {
+                cmp = -1;
+            } else {
+                cmp = 1;
+            }
+
+            if (cmp < 0) {
+                swap(arr, lt, i);
+                lt++;
                 i++;
-                swap(arr, i, j);
+            } else if (cmp > 0) {
+                swap(arr, i, gt);
+                gt--;
+            } else {
+                i++;
             }
         }
-        swap(arr, i + 1, high);
-        return i + 1;
+
+        quickSort(arr, low, lt - 1, ascending);
+        quickSort(arr, gt + 1, high, ascending);
     }
 
     private void medianOfThree(double[] arr, int low, int mid, int high, boolean ascending) {
@@ -98,7 +113,6 @@ public class QuickSort implements SortingAlgorithm {
         if (ascending ? (arr[mid] > arr[high]) : (arr[mid] < arr[high])) {
             swap(arr, mid, high);
         }
-        swap(arr, mid, high);
     }
 
     private void swap(double[] arr, int i, int j) {

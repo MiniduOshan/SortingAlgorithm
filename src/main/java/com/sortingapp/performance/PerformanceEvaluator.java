@@ -85,7 +85,8 @@ public class PerformanceEvaluator {
         List<SortingResult> runs = new ArrayList<>(BENCHMARK_RUNS);
 
         for (int i = 0; i < BENCHMARK_RUNS; i++) {
-            SortingResult result = algorithm.sort(data, ascending);
+            // Pass an independent cloned copy to guarantee absolute isolation
+            SortingResult result = algorithm.sort(data.clone(), ascending);
 
             if (!result.isSortedCorrectly()) {
                 throw new IllegalStateException(
@@ -141,6 +142,11 @@ public class PerformanceEvaluator {
     private static void validateData(double[] data) {
         if (data == null) {
             throw new IllegalArgumentException("Dataset cannot be null.");
+        }
+        for (double v : data) {
+            if (!Double.isFinite(v)) {
+                throw new IllegalArgumentException("Dataset contains non-finite numerical value: " + v);
+            }
         }
     }
 

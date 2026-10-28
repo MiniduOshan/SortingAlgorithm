@@ -58,6 +58,7 @@ public class MainFrame extends JFrame {
     // -------------------------------------------------------------------------
     private JLabel fileNameLabel;
     private JLabel datasetInfoLabel;
+    private JLabel columnHintLabel;
     private JComboBox<String> columnComboBox;
     private JButton uploadBtn;
     private JButton evaluateAllBtn;
@@ -111,6 +112,10 @@ public class MainFrame extends JFrame {
         datasetInfoLabel = new JLabel("Upload a dataset to begin");
         datasetInfoLabel.setFont(FONT_SMALL);
         datasetInfoLabel.setForeground(TEXT_SECONDARY);
+
+        columnHintLabel = new JLabel("Choose the column to sort");
+        columnHintLabel.setFont(FONT_SMALL);
+        columnHintLabel.setForeground(TEXT_SECONDARY);
 
         columnComboBox = new JComboBox<>();
         styleComboBox(columnComboBox);
@@ -321,7 +326,7 @@ public class MainFrame extends JFrame {
 
         content.add(label, BorderLayout.NORTH);
         content.add(columnComboBox, BorderLayout.CENTER);
-        content.add(hint, BorderLayout.SOUTH);
+        content.add(columnHintLabel, BorderLayout.SOUTH);
         block.add(content, BorderLayout.CENTER);
         return block;
     }
@@ -527,16 +532,6 @@ public class MainFrame extends JFrame {
         try {
             CSVData data = CSVReader.readCSV(selectedFile);
 
-            if (data.getNumericColumnIndices().isEmpty()) {
-                JOptionPane.showMessageDialog(
-                        this,
-                        "The selected CSV file does not contain any numeric columns suitable for sorting.",
-                        "No Numeric Columns",
-                        JOptionPane.WARNING_MESSAGE
-                );
-                return;
-            }
-
             currentCSVData = data;
             currentSummary = null;
 
@@ -546,17 +541,23 @@ public class MainFrame extends JFrame {
 
             fileNameLabel.setText(selectedFile.getName());
             datasetInfoLabel.setText(String.format(
-                    "%,d rows  |  %d columns  |  %d numeric columns",
+                    "%,d rows  |  %d columns  |  %d valid numeric",
                     data.getRowCount(),
                     data.getColumnCount(),
                     data.getNumericColumnIndices().size()
             ));
 
-            int selectedColumn = getSelectedColumnIndex();
-            if (selectedColumn >= 0) {
-                currentColumnValues = currentCSVData.getColumnValuesAsDouble(selectedColumn);
+            if (data.getNumericColumnIndices().isEmpty()) {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "The selected CSV file does not contain any valid numeric columns suitable for sorting.\n\n"
+                        + "All columns were inspected and contain non-numeric text, missing values, or non-finite data.",
+                        "No Valid Numeric Columns",
+                        JOptionPane.WARNING_MESSAGE
+                );
             }
 
+            onColumnSelected();
             resetEvaluationVisuals();
             updateControlStates(true);
 
@@ -574,13 +575,19 @@ public class MainFrame extends JFrame {
         columnComboBox.removeAllItems();
 
         if (currentCSVData != null) {
-            for (String columnName : currentCSVData.getNumericColumnNames()) {
-                columnComboBox.addItem(columnName);
+            for (int i = 0; i < currentCSVData.getColumnCount(); i++) {
+                String header = currentCSVData.getHeaders().get(i);
+                boolean isNumeric = currentCSVData.isColumnNumeric(i);
+                columnComboBox.addItem(isNumeric ? header : header + " (Non-numeric)");
             }
-        }
 
-        if (columnComboBox.getItemCount() > 0) {
-            columnComboBox.setSelectedIndex(0);
+            // Select the first valid numeric column by default if available
+            List<Integer> numericIndices = currentCSVData.getNumericColumnIndices();
+            if (!numericIndices.isEmpty()) {
+                columnComboBox.setSelectedIndex(numericIndices.get(0));
+            } else if (columnComboBox.getItemCount() > 0) {
+                columnComboBox.setSelectedIndex(0);
+            }
         }
     }
 
@@ -588,28 +595,57 @@ public class MainFrame extends JFrame {
         if (currentCSVData == null || columnComboBox.getSelectedIndex() < 0) {
             return -1;
         }
-
-        int numericListIndex = columnComboBox.getSelectedIndex();
-        return currentCSVData.getNumericColumnIndices().get(numericListIndex);
+        return columnComboBox.getSelectedIndex();
     }
 
     private void onColumnSelected() {
         int colIndex = getSelectedColumnIndex();
 
         if (colIndex == -1 || currentCSVData == null) {
+            columnHintLabel.setText("Choose the column to sort");
+            columnHintLabel.setForeground(TEXT_SECONDARY);
+            columnHintLabel.setToolTipText(null);
+            updateControlStates(currentCSVData != null);
             return;
         }
 
-        currentColumnValues = currentCSVData.getColumnValuesAsDouble(colIndex);
         invalidatePreviousEvaluation();
+
+        if (currentCSVData.isColumnNumeric(colIndex)) {
+            currentColumnValues = currentCSVData.getColumnValuesAsDouble(colIndex);
+            columnHintLabel.setText("✓ Valid numeric column — ready to sort");
+            columnHintLabel.setForeground(new Color(22, 128, 79));
+            columnHintLabel.setToolTipText(null);
+            evaluateAllBtn.setEnabled(true);
+        } else {
+            currentColumnValues = null;
+            String reason = currentCSVData.getColumnValidationError(colIndex);
+            String shortReason = (reason != null && reason.length() > 34) ? reason.substring(0, 31) + "..." : reason;
+            columnHintLabel.setText("⚠ " + (shortReason != null ? shortReason : "Not sortable"));
+            columnHintLabel.setForeground(new Color(220, 38, 38));
+            columnHintLabel.setToolTipText(reason);
+            evaluateAllBtn.setEnabled(false);
+
+            String colName = currentCSVData.getHeaders().get(colIndex);
+            JOptionPane.showMessageDialog(
+                    this,
+                    "The column '" + colName + "' cannot be selected for sorting.\n\nReason:\n" + reason,
+                    "Column Not Sortable",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
+        }
     }
 
     private void onEvaluateAll() {
-        if (currentCSVData == null || currentColumnValues == null || currentColumnValues.length == 0) {
+        int colIndex = getSelectedColumnIndex();
+        if (currentCSVData == null || colIndex < 0 || !currentCSVData.isColumnNumeric(colIndex) || currentColumnValues == null || currentColumnValues.length == 0) {
+            String reason = (currentCSVData != null && colIndex >= 0)
+                    ? currentCSVData.getColumnValidationError(colIndex)
+                    : "Please upload a CSV dataset and select a valid numeric column first.";
             JOptionPane.showMessageDialog(
                     this,
-                    "Please upload a CSV dataset and select a numeric column first.",
-                    "No Data",
+                    "Cannot execute sorting on the selected column:\n" + reason,
+                    "Invalid Column",
                     JOptionPane.WARNING_MESSAGE
             );
             return;
@@ -746,14 +782,18 @@ public class MainFrame extends JFrame {
 
     private void updateControlStates(boolean dataLoaded) {
         columnComboBox.setEnabled(dataLoaded);
-        evaluateAllBtn.setEnabled(dataLoaded);
+        int colIndex = getSelectedColumnIndex();
+        boolean canEvaluate = dataLoaded && currentCSVData != null && colIndex >= 0 && currentCSVData.isColumnNumeric(colIndex);
+        evaluateAllBtn.setEnabled(canEvaluate);
         exportBtn.setEnabled(false);
     }
 
     private void setEvaluationRunning(boolean running) {
         uploadBtn.setEnabled(!running);
         columnComboBox.setEnabled(!running && currentCSVData != null);
-        evaluateAllBtn.setEnabled(!running && currentCSVData != null);
+        int colIndex = getSelectedColumnIndex();
+        boolean canEvaluate = !running && currentCSVData != null && colIndex >= 0 && currentCSVData.isColumnNumeric(colIndex);
+        evaluateAllBtn.setEnabled(canEvaluate);
         exportBtn.setEnabled(!running && currentSummary != null && currentSummary.getBestResult() != null);
 
         evaluateAllBtn.setText(running ? "Evaluating..." : "Run Sorting Algorithms");

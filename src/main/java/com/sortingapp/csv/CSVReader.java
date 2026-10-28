@@ -4,14 +4,17 @@ import com.sortingapp.model.CSVData;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Utility class for parsing .csv files into CSVData model.
- * Handles standard CSV parsing including quoted strings and comma delimiters.
+ * Utility class for parsing .csv files into the CSVData model.
+ * Handles standard CSV parsing including quoted strings, escaped quotes,
+ * multiline records, UTF-8 BOM encoding, and robust error validation.
  * 
  * Group Assignment Contribution:
  * Member 1: File upload functionality and dataset handling.
@@ -39,26 +42,66 @@ public class CSVReader {
         List<String> headers = new ArrayList<>();
         List<String[]> rows = new ArrayList<>();
 
-        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+        try (BufferedReader br = new BufferedReader(
+                new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
+
             String line = br.readLine();
             if (line == null || line.trim().isEmpty()) {
                 throw new IOException("CSV file has no header row or content.");
             }
 
-            // Parse headers
-            headers = parseCSVLine(line);
-            if (headers.isEmpty()) {
-                throw new IOException("Could not parse headers from the CSV file.");
+            // Strip UTF-8 Byte Order Mark (BOM) if present
+            if (line.startsWith("\uFEFF")) {
+                line = line.substring(1);
+            }
+
+            if (line.trim().isEmpty()) {
+                throw new IOException("CSV file has no header row or content.");
+            }
+
+            // Parse header (accommodating multiline headers if quoted)
+            int currentLineNumber = 1;
+            StringBuilder recordBuilder = new StringBuilder(line);
+            while (countUnescapedQuotes(recordBuilder.toString()) % 2 != 0) {
+                String next = br.readLine();
+                currentLineNumber++;
+                if (next == null) {
+                    throw new IOException("Malformed CSV: unclosed quotation mark in header at line 1.");
+                }
+                recordBuilder.append("\n").append(next);
+            }
+
+            headers = parseCSVRecord(recordBuilder.toString());
+            boolean allEmptyHeaders = true;
+            for (String h : headers) {
+                if (!h.isEmpty()) {
+                    allEmptyHeaders = false;
+                    break;
+                }
+            }
+            if (headers.isEmpty() || allEmptyHeaders) {
+                throw new IOException("Could not parse valid headers from the CSV file.");
             }
 
             // Parse data rows
-            int lineNumber = 1;
             while ((line = br.readLine()) != null) {
-                lineNumber++;
+                currentLineNumber++;
                 if (line.trim().isEmpty()) {
                     continue; // Skip empty lines
                 }
-                List<String> rowTokens = parseCSVLine(line);
+
+                int startLine = currentLineNumber;
+                recordBuilder = new StringBuilder(line);
+                while (countUnescapedQuotes(recordBuilder.toString()) % 2 != 0) {
+                    String next = br.readLine();
+                    currentLineNumber++;
+                    if (next == null) {
+                        throw new IOException("Malformed CSV: unclosed quotation mark starting at line " + startLine + ".");
+                    }
+                    recordBuilder.append("\n").append(next);
+                }
+
+                List<String> rowTokens = parseCSVRecord(recordBuilder.toString());
                 rows.add(rowTokens.toArray(new String[0]));
             }
         }
@@ -71,19 +114,25 @@ public class CSVReader {
     }
 
     /**
-     * Parses a single CSV line accounting for quoted fields.
+     * Parses a single CSV line accounting for quoted fields and escaped quotes.
      */
     public static List<String> parseCSVLine(String line) {
+        return parseCSVRecord(line);
+    }
+
+    /**
+     * Parses a full CSV record accounting for quoted fields and embedded commas.
+     */
+    public static List<String> parseCSVRecord(String record) {
         List<String> tokens = new ArrayList<>();
         StringBuilder sb = new StringBuilder();
         boolean inQuotes = false;
 
-        for (int i = 0; i < line.length(); i++) {
-            char c = line.charAt(i);
+        for (int i = 0; i < record.length(); i++) {
+            char c = record.charAt(i);
 
             if (c == '"') {
-                // Toggle quote mode or handle escaped quotes ("")
-                if (inQuotes && i + 1 < line.length() && line.charAt(i + 1) == '"') {
+                if (inQuotes && i + 1 < record.length() && record.charAt(i + 1) == '"') {
                     sb.append('"');
                     i++; // Skip escaped quote
                 } else {
@@ -98,5 +147,19 @@ public class CSVReader {
         }
         tokens.add(sb.toString().trim());
         return tokens;
+    }
+
+    private static int countUnescapedQuotes(String s) {
+        int count = 0;
+        for (int i = 0; i < s.length(); i++) {
+            if (s.charAt(i) == '"') {
+                if (i + 1 < s.length() && s.charAt(i + 1) == '"') {
+                    i++; // Skip escaped pair ""
+                } else {
+                    count++;
+                }
+            }
+        }
+        return count;
     }
 }
