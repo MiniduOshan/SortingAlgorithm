@@ -16,7 +16,6 @@ import java.util.List;
  * Handles standard CSV parsing including quoted strings, escaped quotes,
  * multiline records, UTF-8 BOM encoding, and robust error validation.
  * 
- * Group Assignment Contribution:
  * Member 1: File upload functionality and dataset handling.
  */
 public class CSVReader {

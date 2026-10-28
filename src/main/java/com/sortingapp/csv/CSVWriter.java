@@ -20,7 +20,6 @@ import java.util.Map;
  * Ensures RFC 4180 compliant CSV formatting, UTF-8 character encoding, proper escaping of
  * headers and data fields, and zero loss of rows.
  * 
- * Group Assignment Contribution:
  * Member 1: Dataset handling and CSV export.
  */
 public class CSVWriter {

@@ -11,7 +11,6 @@ import java.util.Map;
  * Stores headers, row data, and performs strict validation to identify valid numeric columns
  * suitable for sorting without silent data corruption or zero-filling.
  * 
- * Group Assignment Contribution:
  * Member 1: File upload functionality and dataset handling.
  */
 public class CSVData {
