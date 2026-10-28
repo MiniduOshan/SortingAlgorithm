@@ -613,7 +613,7 @@ public class MainFrame extends JFrame {
 
         if (currentCSVData.isColumnNumeric(colIndex)) {
             currentColumnValues = currentCSVData.getColumnValuesAsDouble(colIndex);
-            columnHintLabel.setText("✓ Valid numeric column — ready to sort");
+            columnHintLabel.setText("Valid numeric column — ready to sort");
             columnHintLabel.setForeground(new Color(22, 128, 79));
             columnHintLabel.setToolTipText(null);
             evaluateAllBtn.setEnabled(true);
@@ -621,7 +621,7 @@ public class MainFrame extends JFrame {
             currentColumnValues = null;
             String reason = currentCSVData.getColumnValidationError(colIndex);
             String shortReason = (reason != null && reason.length() > 34) ? reason.substring(0, 31) + "..." : reason;
-            columnHintLabel.setText("⚠ " + (shortReason != null ? shortReason : "Not sortable"));
+            columnHintLabel.setText(shortReason != null ? shortReason : "Not sortable");
             columnHintLabel.setForeground(new Color(220, 38, 38));
             columnHintLabel.setToolTipText(reason);
             evaluateAllBtn.setEnabled(false);

@@ -199,4 +199,55 @@ class CSVValidationTest {
         assertEquals("Smith, Jane", reloaded.getRows().get(3)[1]);
         assertEquals("92.0", reloaded.getRows().get(3)[2]);
     }
+
+    @Test
+    @DisplayName("Test CSV Export with Real Test Datasets and Sorting Algorithms")
+    void testCSVExportRealDatasets() throws IOException {
+        String[] testFiles = {
+                "sample_students.csv",
+                "iris.csv",
+                "sample_sales_500.csv",
+                "sample_housing_2000.csv",
+                "students_performance.csv"
+        };
+
+        for (String fileName : testFiles) {
+            File srcFile = new File("test-data", fileName);
+            if (!srcFile.exists()) continue;
+
+            CSVData data = CSVReader.readCSV(srcFile);
+            assertFalse(data.getNumericColumnIndices().isEmpty(), "File should have numeric columns: " + fileName);
+
+            int colIndex = data.getNumericColumnIndices().get(0);
+            double[] originalValues = data.getColumnValuesAsDouble(colIndex);
+            double[] sortedValues = originalValues.clone();
+            Arrays.sort(sortedValues);
+
+            File exportTarget = tempDir.resolve("sorted_" + fileName).toFile();
+            CSVWriter.exportSortedCSV(exportTarget, data, colIndex, sortedValues);
+
+            assertTrue(exportTarget.exists(), "Exported file must exist: " + fileName);
+            assertTrue(exportTarget.length() > 0, "Exported file must not be empty: " + fileName);
+
+            CSVData reloaded = CSVReader.readCSV(exportTarget);
+            assertEquals(data.getRowCount(), reloaded.getRowCount(), "Row count must match for " + fileName);
+            assertEquals(data.getHeaders(), reloaded.getHeaders(), "Headers must match for " + fileName);
+
+            // Verify the column is sorted in the exported file
+            double[] exportedCol = reloaded.getColumnValuesAsDouble(colIndex);
+            assertArrayEquals(sortedValues, exportedCol, 1e-6, "Exported values must be strictly sorted for " + fileName);
+        }
+    }
+
+    @Test
+    @DisplayName("Test CSV Export Null Arguments and Directory Creation")
+    void testCSVExportEdgeCases() {
+        assertThrows(IOException.class, () -> CSVWriter.exportSortedCSV(null, null, 0, null));
+
+        File nestedDirFile = tempDir.resolve("nested/sub/dir/exported.csv").toFile();
+        List<String[]> rows = Arrays.asList(new String[][]{{"1.0"}});
+        CSVData data = new CSVData("test.csv", List.of("A"), rows);
+        assertDoesNotThrow(() -> CSVWriter.exportSortedCSV(nestedDirFile, data, 0, new double[]{1.0}));
+        assertTrue(nestedDirFile.exists(), "Target parent directory should be created automatically");
+    }
 }
