@@ -19,19 +19,18 @@ import java.util.List;
 /**
  * Main application window for the Sorting Algorithm Performance Evaluator.
  *
- * Member 3 contribution:
- *  - Light-mode dashboard UI
- *  - GUI integration
- *  - Performance evaluation workflow
- *  - Winner/result visualization
- *  - Responsive background benchmarking with SwingWorker
- *  - State reset when the selected numeric column changes
+ * Provides CSV selection, sorting controls, performance visualization,
+ * and CSV export using Java Swing.
+ *
+ * Member 3 Contribution:
+ * - Graphical user interface development
+ * - Performance evaluation integration
+ * - Results table, chart, and fastest algorithm display
+ * - Background execution using SwingWorker
  */
 public class MainFrame extends JFrame {
 
-    // -------------------------------------------------------------------------
     // Theme
-    // -------------------------------------------------------------------------
     private static final Color APP_BG = new Color(246, 249, 253);
     private static final Color CARD_BG = Color.WHITE;
     private static final Color BORDER = new Color(218, 227, 240);
@@ -46,16 +45,12 @@ public class MainFrame extends JFrame {
     private static final Font FONT_NORMAL = new Font("Segoe UI", Font.PLAIN, 13);
     private static final Font FONT_SMALL = new Font("Segoe UI", Font.PLAIN, 12);
 
-    // -------------------------------------------------------------------------
     // Application data
-    // -------------------------------------------------------------------------
     private CSVData currentCSVData;
     private double[] currentColumnValues;
     private PerformanceEvaluator.EvaluationSummary currentSummary;
 
-    // -------------------------------------------------------------------------
     // GUI components
-    // -------------------------------------------------------------------------
     private JLabel fileNameLabel;
     private JLabel datasetInfoLabel;
     private JLabel columnHintLabel;
@@ -81,9 +76,6 @@ public class MainFrame extends JFrame {
         updateControlStates(false);
     }
 
-    // -------------------------------------------------------------------------
-    // Frame setup
-    // -------------------------------------------------------------------------
     private void configureFrame() {
         setTitle("Sorting Algorithm Performance Evaluator");
 
@@ -167,9 +159,6 @@ public class MainFrame extends JFrame {
         setContentPane(root);
     }
 
-    // -------------------------------------------------------------------------
-    // Header
-    // -------------------------------------------------------------------------
     private JPanel createHeaderPanel() {
         JPanel panel = new JPanel(new BorderLayout(18, 0));
         panel.setOpaque(false);
@@ -222,9 +211,6 @@ public class MainFrame extends JFrame {
         return panel;
     }
 
-    // -------------------------------------------------------------------------
-    // Input controls
-    // -------------------------------------------------------------------------
     private JPanel createControlPanel() {
         RoundedPanel card = new RoundedPanel(CARD_BG, 20);
         card.setLayout(new BorderLayout(0, 8));
@@ -320,10 +306,6 @@ public class MainFrame extends JFrame {
         label.setFont(FONT_LABEL);
         label.setForeground(TEXT_PRIMARY);
 
-        JLabel hint = new JLabel("Choose the column to sort");
-        hint.setFont(FONT_SMALL);
-        hint.setForeground(TEXT_SECONDARY);
-
         content.add(label, BorderLayout.NORTH);
         content.add(columnComboBox, BorderLayout.CENTER);
         content.add(columnHintLabel, BorderLayout.SOUTH);
@@ -364,9 +346,7 @@ public class MainFrame extends JFrame {
         return separator;
     }
 
-    // -------------------------------------------------------------------------
     // Dashboard
-    // -------------------------------------------------------------------------
     private JPanel createDashboardPanel() {
         JPanel dashboard = new JPanel(new GridBagLayout());
         dashboard.setOpaque(false);
@@ -395,7 +375,7 @@ public class MainFrame extends JFrame {
         winnerCard.setMinimumSize(new Dimension(100, 225));
         dashboard.add(winnerCard, gbc);
 
-        // Bottom row: the chart now spans the complete dashboard width.
+        // Display the performance chart across the full dashboard width.
         gbc.gridx = 0;
         gbc.gridy = 1;
         gbc.gridwidth = 2;
@@ -497,9 +477,7 @@ public class MainFrame extends JFrame {
         return panel;
     }
 
-    // -------------------------------------------------------------------------
     // Event handling
-    // -------------------------------------------------------------------------
     private void attachEventHandlers() {
         uploadBtn.addActionListener(e -> onUploadCSV());
         evaluateAllBtn.addActionListener(e -> onEvaluateAll());
@@ -598,6 +576,10 @@ public class MainFrame extends JFrame {
         return columnComboBox.getSelectedIndex();
     }
 
+    /**
+     * Validates the selected column and clears previous results
+     * when the column selection changes.
+     */
     private void onColumnSelected() {
         int colIndex = getSelectedColumnIndex();
 
@@ -636,6 +618,10 @@ public class MainFrame extends JFrame {
         }
     }
 
+    /**
+     * Executes all sorting algorithms in a background thread
+     * using SwingWorker to keep the GUI responsive.
+     */
     private void onEvaluateAll() {
         int colIndex = getSelectedColumnIndex();
         if (currentCSVData == null || colIndex < 0 || !currentCSVData.isColumnNumeric(colIndex) || currentColumnValues == null || currentColumnValues.length == 0) {
@@ -686,6 +672,10 @@ public class MainFrame extends JFrame {
         worker.execute();
     }
 
+    /**
+     * Updates the results table, comparison chart, and
+     * fastest algorithm display after evaluation.
+     */
     private void displayEvaluationResults(PerformanceEvaluator.EvaluationSummary summary) {
         if (summary == null) {
             resetEvaluationVisuals();
@@ -712,6 +702,10 @@ public class MainFrame extends JFrame {
         }
     }
 
+    /**
+     * Exports the dataset sorted by the fastest algorithm
+     * to a user-selected CSV file.
+     */
     private void onExportSortedCSV() {
         if (currentCSVData == null || currentSummary == null || currentSummary.getBestResult() == null) {
             JOptionPane.showMessageDialog(
@@ -760,9 +754,7 @@ public class MainFrame extends JFrame {
         }
     }
 
-    // -------------------------------------------------------------------------
     // Result/state management
-    // -------------------------------------------------------------------------
     private void invalidatePreviousEvaluation() {
         currentSummary = null;
         resetEvaluationVisuals();
@@ -800,8 +792,7 @@ public class MainFrame extends JFrame {
     }
 
     /**
-     * Creates the header logo from the same PNG used as the application icon.
-     * If the resource cannot be found, the original painted logo is used.
+     * Loads the application logo or creates a fallback graphic if unavailable.
      */
     private JComponent createHeaderLogo() {
         ImageIcon icon = loadScaledIcon("/icons/app_icon.png", 78, 78);
@@ -835,9 +826,7 @@ public class MainFrame extends JFrame {
         return new ImageIcon(scaled);
     }
 
-    // -------------------------------------------------------------------------
     // Styling helpers
-    // -------------------------------------------------------------------------
     private void styleComboBox(JComboBox<?> comboBox) {
         comboBox.setFont(FONT_NORMAL);
         comboBox.setForeground(TEXT_PRIMARY);
@@ -859,9 +848,7 @@ public class MainFrame extends JFrame {
         return button;
     }
 
-    // -------------------------------------------------------------------------
     // Small custom-painted components used by the light dashboard
-    // -------------------------------------------------------------------------
     private static class ControlIconPanel extends JPanel {
         enum IconType { FILE, DATABASE, EXPORT }
 
@@ -985,7 +972,7 @@ public class MainFrame extends JFrame {
             g2.setPaint(gradient);
             g2.fillRoundRect(0, 0, getWidth() - 3, getHeight() - 3, 22, 22);
 
-            // Decorative circuit traces on the right, matching the reference design.
+            // Decorative circuit traces on the right.
             Color circuit = new Color(171, 91, 255, 55);
             g2.setColor(circuit);
             g2.setStroke(new BasicStroke(2f));
@@ -1053,17 +1040,14 @@ public class MainFrame extends JFrame {
             g2.setColor(new Color(255, 174, 0));
             g2.fillRoundRect(bx, by, bowlW, bowlH, 12, 12);
 
-            // Handles.
             g2.setStroke(new BasicStroke(6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
             g2.drawArc(bx - 16, by + 3, 28, 30, 85, 180);
             g2.drawArc(bx + bowlW - 12, by + 3, 28, 30, -85, 180);
 
-            // Stem and base.
             g2.fillRoundRect(cx - 5, by + bowlH - 1, 10, 28, 5, 5);
             g2.fillRoundRect(cx - 18, by + bowlH + 22, 36, 8, 5, 5);
             g2.fillRoundRect(cx - 25, by + bowlH + 29, 50, 9, 5, 5);
 
-            // White star on trophy.
             g2.setColor(Color.WHITE);
             Polygon star = createStar(cx, by + bowlH / 2, 9, 4, 5);
             g2.fillPolygon(star);
