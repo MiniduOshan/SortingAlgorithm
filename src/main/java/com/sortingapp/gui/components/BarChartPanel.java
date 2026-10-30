@@ -10,12 +10,16 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * Light-theme vertical bar chart matching the reference dashboard.
- * Algorithms are displayed from fastest to slowest.
+ * Displays sorting execution times in a light-themed bar chart.
+ * Algorithms are ordered from fastest to slowest, with the winner in green.
+ *
+ * Member 3 Contribution:
+ * Performance comparison chart and result visualization.
  */
 public class BarChartPanel extends JPanel {
 
     private List<SortingResult> results = new ArrayList<>();
+    private SortingResult bestResult;
     private static final Color BG = Color.WHITE;
     private static final Color TEXT = new Color(30, 41, 59);
     private static final Color MUTED = new Color(100, 116, 139);
@@ -38,9 +42,15 @@ public class BarChartPanel extends JPanel {
         setToolTipText("Execution Time Comparison - lower is better");
     }
 
+    /**
+     * Updates the chart with results ordered by execution time.
+     *
+     * @param results sorting performance results to display
+     * @param bestResult fastest algorithm to highlight, or null if unavailable
+     */
     public void setResults(List<SortingResult> results, SortingResult bestResult) {
-        // bestResult is kept in the method signature for compatibility with MainFrame.
         this.results = new ArrayList<>();
+        this.bestResult = bestResult;
         if (results != null) {
             this.results.addAll(results);
             this.results.sort(Comparator.comparingLong(SortingResult::getExecutionTimeNs));
@@ -93,7 +103,6 @@ public class BarChartPanel extends JPanel {
         // Reserve enough space inside the component for full algorithm names.
         int bottom = 58;
 
-        // Use almost all of the panel area for the actual plot.
         int plotWidth = Math.max(160, width - left - right);
         int plotHeight = Math.max(80, height - top - bottom);
 
@@ -109,7 +118,6 @@ public class BarChartPanel extends JPanel {
         drawGridAndYAxis(g2, left, top, plotWidth, plotHeight, axisMax, scale.unit);
         drawBars(g2, left, top, plotWidth, plotHeight, axisMax, scale);
 
-        // Axes
         g2.setColor(AXIS);
         g2.setStroke(new BasicStroke(1.5f));
         g2.drawLine(left, top, left, top + plotHeight);
@@ -163,10 +171,13 @@ public class BarChartPanel extends JPanel {
             int x = centerX - barWidth / 2;
             int y = top + plotHeight - barHeight;
 
-            g2.setColor(BAR_COLORS[i % BAR_COLORS.length]);
+            // Highlight the supplied winner; use the remaining colors for other bars.
+            boolean isWinner = result == bestResult;
+            Color barColor = isWinner ? BAR_COLORS[0]
+                    : BAR_COLORS[(i % (BAR_COLORS.length - 1)) + 1];
+            g2.setColor(barColor);
             g2.fill(new RoundRectangle2D.Double(x, y, barWidth, barHeight, 5, 5));
 
-            // Value label above bar.
             String valueText = result.getFormattedExecutionTime();
             g2.setFont(new Font("Segoe UI", Font.BOLD, 12));
             g2.setColor(TEXT);
@@ -178,8 +189,7 @@ public class BarChartPanel extends JPanel {
             }
             g2.drawString(valueText, valueX, valueY);
 
-            // Full algorithm name below the x-axis. Keep it inside the reserved
-            // bottom margin so it cannot be clipped by the dashboard card.
+            // Place the algorithm name below the x-axis.
             String label = result.getAlgorithmName();
             g2.setFont(new Font("Segoe UI", Font.PLAIN, 11));
             g2.setColor(TEXT);
@@ -190,6 +200,9 @@ public class BarChartPanel extends JPanel {
         }
     }
 
+    /**
+     * Chooses an appropriate time unit for the chart's y-axis.
+     */
     private TimeScale chooseScale(long maxNs) {
         if (maxNs >= 1_000_000L) {
             return new TimeScale(1_000_000.0, "ms");
@@ -200,13 +213,15 @@ public class BarChartPanel extends JPanel {
         return new TimeScale(1.0, "ns");
     }
 
+    /**
+     * Rounds the axis limit upward to provide readable tick values and label space.
+     */
     private double niceUpperBound(double maxValue) {
         if (maxValue <= 0) {
             return 1.0;
         }
 
-        // Keep about 25% headroom above the tallest bar so the value label
-        // never touches or overlaps the bar/top grid line.
+        // Leave approximately 25% headroom for execution-time labels.
         double target = maxValue * 1.25;
 
         double power = Math.pow(10, Math.floor(Math.log10(target)));
