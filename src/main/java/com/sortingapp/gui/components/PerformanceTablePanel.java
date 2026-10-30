@@ -13,7 +13,13 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * Displays sorting performance results ranked from fastest to slowest.
+ * Displays and ranks sorting algorithm performance results.
+ *
+ * Shows execution time, comparisons, and swaps or shifts
+ * in a table, highlighting the fastest algorithm.
+ *
+ * Member 3 Contribution:
+ * Performance results visualization and reporting.
  */
 public class PerformanceTablePanel extends JPanel {
 
@@ -28,6 +34,7 @@ public class PerformanceTablePanel extends JPanel {
 
     private final JTable table;
     private final DefaultTableModel model;
+    private int winnerRow = -1;
 
     public PerformanceTablePanel() {
         setLayout(new BorderLayout());
@@ -56,7 +63,7 @@ public class PerformanceTablePanel extends JPanel {
         scrollPane.setBorder(BorderFactory.createLineBorder(BORDER));
         scrollPane.getViewport().setBackground(BACKGROUND);
         scrollPane.setBackground(BACKGROUND);
-        scrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
+        scrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
         scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 
         add(scrollPane, BorderLayout.CENTER);
@@ -100,9 +107,14 @@ public class PerformanceTablePanel extends JPanel {
     }
 
     /**
-     * Rebuilds the table in execution-time order. Rank 1 is the fastest result.
+     * Updates the performance table with sorting results,
+     * ranked from fastest to slowest by execution time.
+     *
+     * @param results performance results of the sorting algorithms
+     * @param winner the best-performing algorithm, or null if unavailable
      */
     public void updateResults(List<SortingResult> results, SortingResult winner) {
+        winnerRow = -1;
         model.setRowCount(0);
 
         if (results == null || results.isEmpty()) {
@@ -114,6 +126,9 @@ public class PerformanceTablePanel extends JPanel {
 
         for (int i = 0; i < rankedResults.size(); i++) {
             SortingResult result = rankedResults.get(i);
+            if (result == winner) {
+                winnerRow = i;
+            }
             model.addRow(new Object[]{
                     i + 1,
                     result.getAlgorithmName(),
@@ -122,8 +137,14 @@ public class PerformanceTablePanel extends JPanel {
                     String.format("%,d", result.getSwapCount())
             });
         }
+
+        table.repaint();
     }
 
+    /**
+     * Customizes table cell appearance and highlights
+     * the fastest algorithm.
+     */
     private class ResultsCellRenderer extends DefaultTableCellRenderer {
 
         ResultsCellRenderer() {
@@ -145,7 +166,7 @@ public class PerformanceTablePanel extends JPanel {
             setForeground(TEXT_PRIMARY);
 
             if (!isSelected) {
-                if (row == 0) {
+                if (table.convertRowIndexToModel(row) == winnerRow) {
                     setBackground(WINNER_BG);
                     setForeground(WINNER_TEXT);
                     setFont(new Font("Segoe UI", Font.BOLD, 13));
