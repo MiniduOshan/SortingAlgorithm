@@ -11,9 +11,9 @@ import java.util.List;
 /**
  * Evaluates and compares performance across all required sorting algorithms.
  *
- * Benchmarking uses several timed runs for each algorithm and keeps the median
- * run. This reduces the effect of short-lived JVM/OS timing fluctuations while
- * still using the execution time measured inside each sorting implementation.
+ * Each algorithm is benchmarked over multiple runs, and the median-timed run
+ * is selected to reduce the impact of short-lived JVM and OS timing fluctuations.
+ * Execution times are measured by the sorting implementations.
  *
  * Group Assignment Contribution:
  * Member 3: Performance evaluation and reporting.
@@ -21,7 +21,7 @@ import java.util.List;
 public class PerformanceEvaluator {
 
     /**
-     * Use an odd number so a true middle (median) result always exists.
+     * Use an odd number of runs so there is a single middle (median) result.
      */
     private static final int BENCHMARK_RUNS = 5;
 
@@ -39,7 +39,7 @@ public class PerformanceEvaluator {
         List<SortingAlgorithm> algorithms = SortFactory.getAllAlgorithms();
         List<SortingResult> results = new ArrayList<>();
 
-        // Small untimed warm-up helps reduce JIT start-up effects.
+        // Warm up the JVM before collecting benchmark results.
         warmupJIT(data, ascending);
 
         for (SortingAlgorithm algorithm : algorithms) {
@@ -54,7 +54,7 @@ public class PerformanceEvaluator {
     }
 
     /**
-     * Evaluates one algorithm. Kept compatible with the original application.
+     * Evaluates a single sorting algorithm using median execution time.
      */
     public static SortingResult evaluateSingle(
             SortingAlgorithm algorithm,
@@ -71,11 +71,8 @@ public class PerformanceEvaluator {
     }
 
     /**
-     * Runs the same algorithm multiple times on the same original input and
-     * returns the median-timed run.
-     *
-     * Each sorting implementation already creates its own copy of the input,
-     * so no algorithm receives data that was previously sorted by another run.
+     * Runs an algorithm five times using independent copies of the original
+     * dataset and returns the median-timed result.
      */
     private static SortingResult runMedianBenchmark(
             SortingAlgorithm algorithm,
@@ -85,7 +82,6 @@ public class PerformanceEvaluator {
         List<SortingResult> runs = new ArrayList<>(BENCHMARK_RUNS);
 
         for (int i = 0; i < BENCHMARK_RUNS; i++) {
-            // Pass an independent cloned copy to guarantee absolute isolation
             SortingResult result = algorithm.sort(data.clone(), ascending);
 
             if (!result.isSortedCorrectly()) {
@@ -96,6 +92,7 @@ public class PerformanceEvaluator {
             runs.add(result);
         }
 
+        // Sort the timings and select the middle result.
         runs.sort(Comparator.comparingLong(SortingResult::getExecutionTimeNs));
         return runs.get(BENCHMARK_RUNS / 2);
     }
@@ -110,7 +107,7 @@ public class PerformanceEvaluator {
 
         double[] dummy = createWarmupArray(data);
 
-        // Two passes give the JVM a chance to load/compile the hot methods.
+        // Perform two warm-up passes to reduce startup effects.
         for (int pass = 0; pass < 2; pass++) {
             for (SortingAlgorithm algorithm : SortFactory.getAllAlgorithms()) {
                 algorithm.sort(dummy, ascending);
@@ -170,6 +167,10 @@ public class PerformanceEvaluator {
             return bestResult;
         }
 
+        /**
+         * Generates a formatted report with the fastest algorithm, execution
+         * times, and a ranked comparison of all benchmark results.
+         */
         public String getSummaryText() {
             if (bestResult == null) {
                 return "No results available.";
